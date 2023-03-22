@@ -1,0 +1,708 @@
+University Gustave Eiffel
+Request For Comments: 2023
+Category: Informational
+GAUDET Clément - JEAN Antonin
+UGE - M1 CI/CS
+
+                UGE Greed Network Project -- UGEGreed
+
+Summary
+
+This document describes the UGEGreed protocol. The UGEGreed
+protocol aims at enabling a simple distributed computing system
+over a network of machines, over the TCP protocol. The general
+principles of the protocol will be detailed as well as the content
+of the packets and the way applications communicate between each
+other.
+
+==================================================================
+                      0 -*- Introduction        
+==================================================================
+
+0.1. -*- Purpose
+
+The UGEGreed protocol is an application-level protocol, built on top
+of the TCP protocol, meant to allow for a distributed computing system.
+The operations to be distributed along the network involve taking
+integers and computing a result string that corresponds to it.
+
+The code to run for the computation is shared via a URL for a JAR
+file and the name of the Java class containing that code.
+Anything that can run Java code in some way or another can
+implement this protocol.
+
+Applications connected to each other form a network, and a large
+computation can be started on any of the applications, which will
+then be distributed over the network before the results get collected
+back where the computation was started.
+
+0.2 -*- Terminology
+
+packet      Sequence of bytes corresponding to a complete message.
+
+node        A running application, representing a node in the network.
+
+child       A node is a child to a parent node if it initiated
+            the connection to that node.
+
+parent      A node is a parent to a child node if the child node was
+            the one that initiated the connection.
+
+potential   The number of nodes contained in a part of the network
+
+job         A computation that was started by a node.
+
+job request Request sent by a node to another node to take care of a
+            part of a job
+
+upstream    In the context of a job, refers to the node that sent a
+            job request to the current node
+
+downstream  In the context of a job, refers to the node a job
+            request was sent to
+
+0.3 -*- Network diagram
+
+                  .-----.
+                  |  A  |
+                  |_____|
+                   T   T
+                 2 |   | 3
+          2        |   |        1
+ .-----.<-----------   ----------->.-----.
+ |  B  |                           |  C  |
+ '"""""'                           '"""""'
+    T 3
+    |
+    |
+    | 1
+    v
+ .-----.
+ |  D  |
+ '"""""'
+
+A small diagram is shown here to demonstrate the main relationships
+between nodes of the network.
+
+0.3.1. -*- Structural relationships
+
+By structural, we refer to the way the connections are created
+between  the nodes. Those relationships are fixed and do not change,
+except in  case a node disconnects from the network.
+
+When applications are started, they have the option to open one
+connection to another node. The first application to be started
+is alone,  so will not connect to any other node, it is the root
+of the network.
+
+Subsequently, every other node of the network connects to one
+another node, making the network take the shape of a tree.
+
+On the example diagram, node A is the root of the network, with
+node B and C both connected to A.
+This architecture is obtained by starting the applications in
+that order :
+- A is started
+- B is started with a connection to A
+- C is started with a connection to A
+- D is started with a connection to B
+    
+0.3.2 -*- Functional relationships
+
+Functional relationships appear in the context of an ongoing job.
+
+One node is the origin of the job. The job gets distributed
+downstream  to other nodes, recursively until it's distributed
+along the whole network.  The node send their answers back upstream,
+back to the node which started the job.
+ 
+On the given example, if node C starts a job, it will be the
+upstream node. It will send requests downstream to the other nodes
+it's attached to  (regardless of the structurals relationships),
+which are A and D. A will spread further downstream to C.
+
+Inversely, when nodes need to return answers, they will send
+them upstream. C will send them to A which will send them to A, and
+D will send them to A.
+
+0.3.3 -*- Potentials
+
+One of the important principles of this protocol is to attempt to
+distribute calcululations in a balanced manner throughout the
+network. As such, each node is aware of how many nodes are available
+in each direction (i.e. connection) it can send jobs towards.
+
+This is represented on the diagram by the numbers that are on each
+edge. Looking at the edge between A and C, the 1 indicates that
+A knows there is one node in the subnetwork connected to C, and the 3
+indicates that C knows there are 3 nodes in the subnetwork connected
+to A. Those numbers of course exclude the node itself and other subnetworks
+it's connected to.
+
+Those numbers are referred to as "potential".
+
+==================================================================
+                          1 -*- Packets
+==================================================================
+
+This section details the format of the different packets that are used
+by the protocol. Their proper ordering and use are detailed in the
+protocol section.
+
+1.0 -*- Conventions:
+
+Some conventions are given here about the structure of packets:
+
+Every packet starts with a single byte which indicates which type
+of packet it is.
+
+All integers follow the big endian byte order.
+
+"int" refers te 32 bits signed integers
+
+"long" refers to 64 bits signed integers
+
+"string" refers to an int followed by a sequence of bytes. The int
+gives the size of the following sequence of bytes, which is an
+encoded string. The encoding is indicated along with the string.
+
+    int(4B)       n bytes
+  -----------------------------
+  | size n |  encoded string  |
+  -----------------------------
+
+"host" refers to an IP address/port pair. It first specifies an
+IPv4 address over 4 bytes, followed by a port number on 2 bytes
+ 
+      4 bytes       2 bytes
+  -----------------------------
+  |     IPv4     |    port    |
+  -----------------------------
+
+1.1 - INIT (initialize):         
+
+   1 byte   int (4 bytes)
+  -------------------------
+  |  1  |    potential    |
+  -------------------------
+
+  Direction : from parent to child, on connection
+
+  Role  :
+    When a new node establishes connection with an existing network,
+    an INIT packet is sent to the new node to inform them of the current
+    number of nodes on the network (including the parent).
+
+1.2 - UPDT (update):
+
+   1 byte   int (4 bytes)
+  -------------------------
+  |  2  |    potential    |
+  -------------------------
+
+  Direction : from a parent to all other nodes, on connection of
+    a new child, sometimes from child to new parent
+
+  Role  :
+    This packet has a similar role to the INIT one, except its role is
+    to update the rest of the network of the number of nodes over the network.
+    On a new connection, the parent should send one of these to each other
+    node its connected to, informing them of the new number of nodes it's
+    attached to, including itself, but of course excluding the node it's
+    sent to.
+
+    They are meant to be relayed node by node so that the whole network
+    is updated.
+
+1.3 - REQ (request):
+
+    1 B     long(8 B)    string(4+n B)   string(4+m B)    int(4 B)     int(4 B)
+  -------------------------------------------------------------------------------
+  |  3  |    job_id    |    jar_URL    |  class_name  | range_start | range_end |
+  -------------------------------------------------------------------------------
+                            ASCII           UTF-8
+ 
+  Direction: from upstream to downstream
+
+  Role  :
+    This packet represents a job request. A job has a unique id on the network
+    represented by a long integer for the purpose of identifying separate jobs.
+    The necessary information for executing the job are given, including the URL
+    to the JAR file containing the code to run, the name of the class to use,
+    and the range of integers to compute (start included, end excluded).
+
+    Nodes receiving a request are expected to take some of the work for themselves
+    and distribute the rest by sending its own subjob requests to other nodes
+    downstream of the job giver.
+
+1.4 - ACC (accept):
+
+    1 B    long(4 B)      int(4 B)     int(4 B)
+  ------------------------------------------------
+  |  4  |    job_id    | range_start | range_end |
+  ------------------------------------------------
+
+  Direction: from downstream to upstream
+
+  Role  :
+    This packet serves to inform the upstream node that the current node
+    has accepted to take on some of the work that was requested. The job id
+    serves to identify which job the answer is about, and the range informs
+    on which numbers have been taken.
+
+    A job may be only partially accepted, depending on the state of the network,
+    and a REF packet might be sent along as well.
+
+1.5 - REF (refuse):   
+
+    1 B    long(4 B)      int(4 B)     int(4 B)
+  ------------------------------------------------
+  |  5  |    job_id    | range_start | range_end |
+  ------------------------------------------------
+
+  Direction: from downstream to upstream
+
+  Role  :
+    This packet serves to inform the upstream node that the current node
+    has refused to take on some of the work that was requested. The job id
+    serves to identify which job the answer is about, and the range informs
+    on which numbers have been refused.
+
+    The upstream node will have to take on the work by itself or attempt
+    to redistribute it elsewhere on the network.
+
+1.6 - ANS
+
+    1 B     long(4 B)   int(4 B)   string(4+n B)
+  ----------------------------------------------
+  |  6  |    job_id    | number |    result    |
+  ----------------------------------------------
+                                    UTF-8
+
+  Direction: from downstream to upstream
+
+  Role  :
+    This packet serves to inform the upstream node that a calculation
+    was complete, giving the id of the job, as well as which number
+    was computed, and the resulting string, encoded in UTF-8.
+    For each computation complete, one of these should be sent back
+    upstream.
+
+1.7 - REDI (redirection):      
+
+    1 B    host (6 B)
+  ----------------------
+  |  7  |  new_parent  |
+  ----------------------
+
+  Direction: from parent to child, on disconnectiong
+
+  Role:
+    In the context of the disconnection of a non root node, this packet
+    is sent to the children to inform them about a new node to connect
+    to, as to maintain the integrity of the network. The IP and port
+    of the parent of the disconnecting node should be given.
+
+1.8 - DISC (disconnection):    
+
+    1 B   int(4 B)  int(4 B)    long(4 B)       host(6 B)
+  ---------------------------------------------------------------
+  |  8  | nb_reco |  nb_jobs  |   job_id   |  new_upstream  | ....
+  ----------------------------------------------------------------
+
+  Direction : disconnecting node to all neighbours
+
+  Role:
+    This packet has two roles. First, it informs neighbors that it is
+    going to disconnecting, and that they should be putting communications
+    with that node on hold.
+
+    Secondly, if a node disconnects while at least one job is ongoing, it
+    might interrupt pathways allowing answers to go back upstream to the node
+    that started the job.
+
+    Thus, for each active job it was a part of, it sends its neighbors
+    the host that should become the new upstream node so that after it
+    disconnects and after the children reconnect afterwards, pathways
+    maybe be reestablished.
+    
+    Since there might be multiple jobs, the nb_jobs fields informs about
+    how many times the job_id/new_upstream part gets repeated.
+
+    A last information is given. The field nb_reco will be 0 for most neighbours
+    except the parent. Indeed, the disconnecting node has to tell the parent how
+    many new connections to expect before the network is reformed.
+
+1.9 - OK_DISC (ok disconnection):
+
+    1 B   
+  -------
+  |  9  |
+  -------
+
+  Direction: from neighbors to disconnecting node
+
+  Role  :
+    Very simple packet meant, for each neighbors, to inform the disconnecting node
+    that all communication upstream are properly suspended. The disconnecting node
+    waits for each neighbors to confirm with this packet before proceeding to the
+    disconnection itself.
+
+
+==================================================================
+                        2.0 -*- Protocol:
+==================================================================
+     
+The UGEGreed protocol is detailed in this section
+
+2.1 -*- Initialization of the network
+
+  A network is first initialize by starting the first node without
+  connecting it to any other. This node becomes the structural root
+  of the network.
+     
+2.2 -*- Connection of a new node
+
+  Consider an already existant network. To add a new node A to this network,
+  it should be connected to one of the already existing nodes B. Upon forming
+  this connection, potentials across the network have to be updated.
+
+  First, an INIT packet is sent from B to A, telling it about the number of
+  of nodes the whole network has.
+
+  Secondly, B sends to every other neighbor an UPDT packet, telling them how
+  many nodes are now available (which should be the previous number + 1) in
+  the subnetwork formed by B, excluding the neighbor its sent to.
+
+  Those UPDT packets should be recursively propagated by the neighbors in a
+  similar manner (to all neighbors except the one they received the UPDT
+  packet from) so that the whole network is updated.
+ 
+  Example diagram:
+
+  Consider this network.
+
+                  .-----.
+                  |  A  |
+                  |_____|
+                 2 T   T 2
+                   |   |  
+         1         |   |         1
+ .-----.<-----------   ----------->.-----.
+ |  B  |                           |  C  |
+ '"""""'                           '"""""'
+
+A new node D connects to B, the network now looks like that:
+
+                  .-----.
+                  |  A  |
+                  |_____|
+                   ^   |
+                   |   |  
+      2. UPDT (2)  |   |  3. UPDT (3)       
+ .-----. -----------   ----------->.-----.
+ |  B  |                           |  C  |
+ '"""""'                           '"""""'
+    |
+    | 1. INIT (3)
+    |
+    |
+    v
+ .-----.
+ |  D  |
+ '"""""'
+
+  The arrows indicates this time the packets sent and their direction.
+  Firstly, B sends an INIT packet to D containing 3, as it's aware there
+  are 2 machines in the subnetwork of its only neighbor + itself.
+
+  Secondly, B sends an UPDT packet to A containing 2, because of its
+  new neighbor + itself.
+
+  Thirdly, once A received the UPDT packet, it sends one in turn to C,
+  containing (3), since it now knows there are 2 nodes in the subnetwork
+  formed by B + itself.
+
+  The final result is:
+
+                  .-----.
+                  |  A  |
+                  |_____|
+                   T   T
+                 2 |   | 3
+          2        |   |        1
+ .-----.<-----------   ----------->.-----.
+ |  B  |                           |  C  |
+ '"""""'                           '"""""'
+    T 3
+    |
+    |
+    | 1
+    v
+ .-----.
+ |  D  |
+ '"""""'
+
+2.3 -*- Requesting a new job
+
+  Any node of the network can start a new job and distribute it over the network.
+  The node should use the potentials it knows about its different neighbors to
+  split the work that has to be done in a fair manner so as to get it completed
+  faster.
+
+  The first phase of a job request is to send the requests themselves.
+
+  When it has decided how to split the work, by dividing it into different subranges
+  of numbers that have to be computed, it sends a REQ packet to each of its neighbor
+  with the necessary information for the job to be completed. Notably, it is its job
+  to choose a unique job id, and to inform the other nodes about the URL for the JAR
+  and the name of the class to be used, as well as what range of numbers 
+  is requested.
+
+  When a node receives a job request, it should in turn, recursively, subdivide the
+  job again, and distribute it to its other downstream neighbors,
+  in order to distribute
+  it correctly. The information that was given by the upstream node should be saved,
+  as well as which node is the upstream one, as that information is required to know
+  which node to send the results back to.
+ 
+  The second phase of a job request is to receive the responses from the 
+  downstream nodes.
+
+  A node that has received a job request must send a response to the upstream node.
+  Notably, it must notify it of which number range it accepted, and eventually which
+  range it refused, in case the subnetwork was too congested to accept. This is 
+  done via
+  the ACC and REF packets. If a range is refused, a node can either redistribute
+  the range
+  towards another subnetwork, take the work for itself, or send a REF packet further
+  upstream, unless it is already the node that started the job.
+ 
+Example diagram:
+
+  We reuse the same network as obtained at the end of the example from section 2.2
+
+  Let's suppose B decides to start a certain job, with a range from 1 to 13. Here's
+  how the requests would typically spread.
+
+                  .-----.
+                  |  A  | 2. Keeps 6-9
+                  |_____|
+                   ^   T
+                   |   |
+  1. Keeps 1-3     |   |    2. REQ for 9-12
+ .-----. -----------   ----------->.-----.
+ |  B  | 1. REQ for 6-12           |  C  |
+ '"""""'                           '"""""'
+    T
+    |
+    | 1. REQ for 3-6
+    |
+    v
+ .-----.
+ |  D  |
+ '"""""'
+
+  Using the potentials, B knows there are 4 nodes available to it, including itself.
+  It thus keeps a fourth of the work for itself, sends a fourth of it to D, and the
+  remaining half to A. A itself knows it has another node available to it, and splits
+  the job back into two and sends one half to C, keeping the other half to itself.
+
+  After this, the responses have to be collected. Let's suppose all nodes but C
+  accept their work.
+
+                  .-----.
+                  |  A  | 2. It can't handle more, so
+                  |_____|   A chooses to refuse 9-12
+                   T   ^
+ 3. B chooses to   |   |
+ handle 9-12       |   |
+                   |   |    1. REF for 9-12
+ .-----.<-----------   ----------- .-----.
+ |  B  | 2. ACC for 6-9            |  C  |
+ '"""""'  + REF for 9-12           '"""""'
+    ^
+    |
+    | 1. ACC for 3-6
+    |
+    |
+ .-----.
+ |  D  |
+ '"""""'
+
+ The job is now distributed properly. Of course, this is only an example and all
+ situations cannot be represented. In any case, each node must answer the full range
+ that was requested in a mix of ACC and REF packets, so to account in the end for all
+ of the numbers that are to be done for the job.
+     
+     
+2.4 -*- Job Answering
+ 
+  Once a job is ongoing, answers must be sent back upstream towards the node 
+  that asked for the job.
+
+  This is done using ANS packets. The id of the job, as well as the number the 
+  answer is for,
+  and the answer itself, have to be provided in the packet.
+
+  It should be sent upstream, meaning, to the node the request was received 
+  from, unless
+  the current node is the one which started the job itself. If a node receives an 
+  ANS packet,
+  it must also forward it upstream, unless it is the node that started the job.
+
+2.5 -*- Disconnection of a non root node
+
+  The disconnection of a non root node is a delicate process as it 
+  requires maintaining the
+  integrity of the network to prevent it from splitting apart, as well as maintaining
+  ongoing jobs. The process thus takes multiple phases.
+
+  If the node had started jobs itself, they must be completed before
+  disconnecting the job.
+
+  Phase 1: Notifications
+
+    The node which wishes to disconnect must send a DISC packet to every neighbor.
+    If a node receives a DISC packet, it must put on hold any communication to 
+    that node,
+    most notably answers, until the full process of disconnection/reconnection 
+    is complete.
+
+    DISC packets contain extra information, notably about ongoing jobs. Indeed,
+    the node to
+    disconnect might be a pathway to get answers back up to an upstream node.
+    This only matters
+    if it's the parent node that is downstream (since children will only have one 
+    new connection afterwards). It should thus inform its parent for each job it 
+    is downstream of about which
+    host they should send answers to instead after the disconnection.
+
+    The DISC packet also tells the parent how many reconnections to expect 
+    after the disconnection.
+    This is so the parent react to the children reconnecting to the 
+    network appropriately.
+
+  Phase 2: Aknowledgement
+
+    Once neighbours have received the DISC packet and have put on hold their 
+    other communication
+    to that node, they send back a DISC_OK packet. Once the disconnecting 
+    node received one from
+    each of their neighbour, they can go on to phase 3. This is to make 
+    absolutely certain no
+    other packet, notably ANS packets, will have to be transferred through 
+    the disconnecting node
+    until its actual disconnection.
+
+  Phase 3: Transferring further information
+
+    In that phase, the disconnecting node must still transfer other information.
+
+    First, for the jobs it had, it must send REF packets to the upstream nodes 
+    to inform them that
+    numbers they had accepted to compute will not be done.
+
+    Second, it sends REDI packets to its children, giving them the IP and port of 
+    its parent node.
+    This allows the children to reconnect afterwards to the network in order 
+    to maintain its integrity.
+
+  Phase 4: Disconnection and reconnection
+
+    At that point, the node is shutdown, and the connection to each of its 
+    neighbours is ended.
+
+    Once the neighbour notice the disconnection, they can then do the 
+    necessary actions to get going
+    again. The children will reconnect to the parent of the disconnected node 
+    using the IP and port they
+    received from the REDI packets.
+
+    Once the reconnections are done, potentials will need to be updated. The 
+    new parent will wait for
+    each child to have reconnected. Each child will send an UPDT packet 
+    containing the number of node
+    in the subnetwork it remained attached to. Once all these are obtained, the 
+    new parent can then
+    send each child an INIT packet with the proper number of nodes, as well as 
+    UPDT packets to its other
+    previous neighbours, so as to keep the whole network up to date.
+
+    After that, nodes also need to make sure that the upstream nodes are updated 
+    for each job using the
+    information for the DISC packets.
+
+    At that point, all communications can resume, as the network should have kept 
+    its integrity.
+
+  Diagram example:
+
+    Once again, we'll use the previously described network:
+
+                  .-----.
+                  |  A  |
+                  |_____|
+                   T   T
+                 2 |   | 3
+          2        |   |        1
+ .-----.<-----------   ----------->.-----.
+ |  B  |                           |  C  |
+ '"""""'                           '"""""'
+    T 3
+    |
+    |
+    | 1
+    v
+ .-----.
+ |  D  |
+ '"""""'
+
+ We will suppose B wishes to disconnect, and that a job with id 45 started by D 
+ was currently on going.
+
+ Phase 1:
+
+  B sends a DISC packet to A containing
+  * nb_reco = 1
+  * nb_jobs = 1
+  * job_id = 45
+  * host = D
+
+  This means A will have to expect one reconnection (from D), and since A 
+  is downstream for job 45,
+  that it needs to send answer packets to D after the reconnection (here it 
+  wouldn't matter since only
+  one child will have to reconnect, but B could have multiple children, which 
+  would lead to confusion).
+
+  B also sends a DISC packet to A containing:
+  * nb_reco = 0
+  * nb_jobs = 0
+
+  D won't expect any reconnection, and being a child, it doesn't matter if it 
+  even was downstream of a job.
+
+Phase 2:
+
+  D and A send an OK_DISC packet to B
+
+Phase 3:
+
+  B sends a REF packet to D with the range it did not complete before disconnection.
+
+  It then sends D a REDI packet containing the information for host A.
+
+Phase 4:
+
+  B disconnects. Upon sensing the disconnection, D proceeds to reconnect to A.
+
+  D then sends an UPDT packet to A telling it there is only 1 node in its subnetwork.
+
+  Since the only child that was expected reconnected, A can then send an INIT 
+  packet to D telling it there are now 2 nodes on this side of the network, 
+  and an UPDT packet to C informing it there are now 2 nodes on its side as well.
+
+  At that point, communications resume normally, as D chooses to do the 
+  remaining calculations itself, and A can send D the answers that were buffered 
+  from both itself and C.
