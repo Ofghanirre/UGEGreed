@@ -77,9 +77,5 @@ public class StringReader implements Reader<String> {
 		state = State.WAITING_SIZE;
     internalBuffer.clear();
     internalBuffer.limit(Integer.BYTES);
-	};
-	
-	
-	
-	
+	}
 }
