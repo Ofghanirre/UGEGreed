@@ -1,5 +1,7 @@
 package fr.uge.ugegreed.packets;
 
-public interface Packet {
+import java.nio.ByteBuffer;
 
+public interface Packet {
+  ByteBuffer toBuffer();
 }
