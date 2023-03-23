@@ -1,4 +1,4 @@
-package fr.uge.greed;
+package fr.uge.ugegreed;
 
 public class Main {
   public static void main(String[] args) {
