@@ -5,6 +5,9 @@ import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.logging.Logger;
 
+/**
+ * Entry point for the UGE Greed application
+ */
 public class Main {
   private static final Logger logger = Logger.getLogger(Main.class.getSimpleName());
 
