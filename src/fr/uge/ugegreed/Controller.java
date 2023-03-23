@@ -11,6 +11,10 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.logging.Logger;
 
+/**
+ * Main controller for the application.
+ * Manages the TCP connections and communication.
+ */
 public class Controller {
   private static final Logger logger = Logger.getLogger(Controller.class.getName());
   private final Selector selector;
@@ -20,6 +24,13 @@ public class Controller {
   private final ServerSocketChannel serverSocketChannel;
   private final SocketChannel parentSocketChannel;
 
+  /**
+   * Creates a new controller
+   * @param listenPort port to listen for new connections on
+   * @param resultPath path where to store results for jobs started by this application
+   * @param parentAddress address of the parent to connect to, if NULL, application is in ROOT mode
+   * @throws IOException in case of TCP layer errors
+   */
   public Controller(int listenPort, Path resultPath, InetSocketAddress parentAddress) throws IOException {
     if (listenPort < 0 || listenPort > 65535) {
       throw new IllegalArgumentException("Port number is incorrect");
@@ -38,6 +49,10 @@ public class Controller {
     this(listenPort, resultPath, null);
   }
 
+  /**
+   * Launches the controller
+   * @throws IOException in case of TCP layer errors
+   */
   public void launch() throws IOException {
     serverSocketChannel.configureBlocking(false);
     serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
