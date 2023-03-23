@@ -216,7 +216,7 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
 
 1.3 - REQ (request):
 
-    1 B     long(8 B)    string(4+n B)   string(4+m B)    int(4 B)     int(4 B)
+    1 B     long(8 B)    string(4+n B)   string(4+m B)   long(8 B)    long(8 B)
   -------------------------------------------------------------------------------
   |  3  |    job_id    |    jar_URL    |  class_name  | range_start | range_end |
   -------------------------------------------------------------------------------
@@ -237,7 +237,7 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
 
 1.4 - ACC (accept):
 
-    1 B    long(4 B)      int(4 B)     int(4 B)
+    1 B    long(8 B)     long(8 B)     long(8 B)
   ------------------------------------------------
   |  4  |    job_id    | range_start | range_end |
   ------------------------------------------------
@@ -255,7 +255,7 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
 
 1.5 - REF (refuse):   
 
-    1 B    long(4 B)      int(4 B)     int(4 B)
+    1 B    long(8 B)      long(8 B)     long(8 B)
   ------------------------------------------------
   |  5  |    job_id    | range_start | range_end |
   ------------------------------------------------
@@ -273,7 +273,7 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
 
 1.6 - ANS
 
-    1 B     long(4 B)   int(4 B)   string(4+n B)
+    1 B     long(8 B)   long(8 B)  string(4+n B)
   ----------------------------------------------
   |  6  |    job_id    | number |    result    |
   ----------------------------------------------
@@ -305,7 +305,7 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
 
 1.8 - DISC (disconnection):    
 
-    1 B   int(4 B)  int(4 B)    long(4 B)       host(6 B)
+    1 B   int(4 B)  int(4 B)    long(8 B)       host(6 B)
   ---------------------------------------------------------------
   |  8  | nb_reco |  nb_jobs  |   job_id   |  new_upstream  | ....
   ----------------------------------------------------------------
