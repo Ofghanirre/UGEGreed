@@ -15,19 +15,19 @@ public class TypeToByteWriter {
      * Return a byteBuffer containing the String encoded in UTF-8
      * prefixed by its byte sized
      * @param input String to write
-     * @return ByteBuffer WRITE mode
+     * @return ByteBuffer READ mode
      */
     public static ByteBuffer getString(String input) {
         ByteBuffer translatedInput = cs.encode(input);
-        return ByteBuffer.allocate(Integer.BYTES + translatedInput.capacity()).putInt(translatedInput.capacity()).put(translatedInput);
+        return ByteBuffer.allocate(Integer.BYTES + translatedInput.capacity()).putInt(translatedInput.capacity()).put(translatedInput).flip();
     }
 
     /**
      * Return a byteBuffer containing the ip (ipv4) and port
      * @param input Address to write
-     * @return ByteBuffer WRITE mode
+     * @return ByteBuffer READ mode
      */
     public static ByteBuffer getHost(InetSocketAddress input) {
-        return ByteBuffer.allocate(6).put(input.getAddress().getAddress()).putShort((short) input.getPort());
+        return ByteBuffer.allocate(6).put(input.getAddress().getAddress()).putShort((short) input.getPort()).flip();
     }
 }

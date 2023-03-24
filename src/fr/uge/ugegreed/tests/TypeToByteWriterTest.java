@@ -14,7 +14,7 @@ public class TypeToByteWriterTest {
     @Test
     public void simpleString() {
         var string = "€a€";
-        var bb = TypeToByteWriter.getString(string).flip();
+        var bb = TypeToByteWriter.getString(string);
         bb.getInt();
         var result = StandardCharsets.UTF_8.decode(bb).toString();
         assertEquals("€a€", result);
@@ -23,7 +23,7 @@ public class TypeToByteWriterTest {
     @Test
     public void simpleHost() throws UnknownHostException {
         var host = new InetSocketAddress("42.69.00.30", 7777);
-        var bb = TypeToByteWriter.getHost(host).flip();
+        var bb = TypeToByteWriter.getHost(host);
 
         byte[] addrBytes = new byte[4];
         bb.get(addrBytes);
