@@ -18,7 +18,7 @@ public class TypeToByteWriter {
      * @return ByteBuffer WRITE mode
      */
     public static ByteBuffer getString(String input) {
-        ByteBuffer translatedInput = cs.encode(input).flip();
+        ByteBuffer translatedInput = cs.encode(input);
         return ByteBuffer.allocate(Integer.BYTES + translatedInput.capacity()).putInt(translatedInput.capacity()).put(translatedInput);
     }
 
@@ -28,6 +28,6 @@ public class TypeToByteWriter {
      * @return ByteBuffer WRITE mode
      */
     public static ByteBuffer getHost(InetSocketAddress input) {
-        return ByteBuffer.allocate(6).put(input.getAddress().getAddress()).putInt(input.getPort());
+        return ByteBuffer.allocate(6).put(input.getAddress().getAddress()).putShort((short) input.getPort());
     }
 }
