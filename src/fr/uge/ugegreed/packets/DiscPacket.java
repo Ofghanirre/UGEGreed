@@ -63,6 +63,6 @@ public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) imple
 
   @Override
   public String toString() {
-    return "INIT packet(nb_reco: " + nb_reco + ", nb_jobs: " + nb_jobs + ", jobs:" + Arrays.toString(jobs) + ")";
+    return "DISC packet(nb_reco: " + nb_reco + ", nb_jobs: " + nb_jobs + ", jobs:" + Arrays.toString(jobs) + ")";
   }
 }
