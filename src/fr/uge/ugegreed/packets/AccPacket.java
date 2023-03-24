@@ -5,8 +5,8 @@ import java.nio.ByteBuffer;
 /**
  * Represents an ACC packet
  * @param job_id the job id to operate
- * @param range_start start range of number to operate on (inclusive)
- * @param range_end end range of number to operate on (exclusive)
+ * @param range_start start range of number operated in (inclusive)
+ * @param range_end end range of number operated in (exclusive)
  */
 public record AccPacket(long job_id, long range_start, long range_end) implements Packet  {
     private static final byte CODE = PacketCode.UPDT.getCode();
