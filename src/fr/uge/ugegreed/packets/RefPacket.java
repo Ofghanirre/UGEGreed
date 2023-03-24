@@ -9,7 +9,7 @@ import java.nio.ByteBuffer;
  * @param range_end end range of number operated in (exclusive)
  */
 public record RefPacket(long job_id, long range_start, long range_end) implements Packet  {
-    private static final byte CODE = PacketCode.UPDT.getCode();
+    private static final byte CODE = PacketCode.REF.getCode();
 
     public RefPacket {
         if (job_id < 1) {

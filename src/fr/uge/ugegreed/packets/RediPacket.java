@@ -11,7 +11,7 @@ import java.util.Objects;
  * @param new_parent parent IP and port
  */
 public record RediPacket(InetSocketAddress new_parent) implements Packet {
-  private static final byte CODE = PacketCode.INIT.getCode();
+  private static final byte CODE = PacketCode.REDI.getCode();
 
   public RediPacket {
     Objects.requireNonNull(new_parent);

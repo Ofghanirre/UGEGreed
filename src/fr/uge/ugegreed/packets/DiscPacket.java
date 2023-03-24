@@ -37,7 +37,7 @@ public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) imple
     }
   }
 
-  private static final byte CODE = PacketCode.INIT.getCode();
+  private static final byte CODE = PacketCode.DISC.getCode();
 
   public DiscPacket {
     if (nb_reco < 0) {

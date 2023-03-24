@@ -12,7 +12,7 @@ import java.util.Objects;
  * @param result the resulting string, encoded in UTF-8
  */
 public record AnsPacket(long job_id, long number, String result) implements Packet  {
-    private static final byte CODE = PacketCode.UPDT.getCode();
+    private static final byte CODE = PacketCode.ANS.getCode();
 
     public AnsPacket {
         if (job_id < 1) {

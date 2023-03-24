@@ -14,7 +14,7 @@ import java.util.Objects;
  * @param range_end end range of number to operate on (exclusive)
  */
 public record ReqPacket(long job_id, String jar_URL, String class_name, long range_start, long range_end) implements Packet  {
-    private static final byte CODE = PacketCode.UPDT.getCode();
+    private static final byte CODE = PacketCode.REQ.getCode();
 
     public ReqPacket {
         if (job_id < 1) {
