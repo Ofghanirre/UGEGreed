@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 /**
  * Represents an REF packet
- * @param job_id the job id to operate
+ * @param job_id the job id operated
  * @param range_start start range of number operated in (inclusive)
  * @param range_end end range of number operated in (exclusive)
  */
