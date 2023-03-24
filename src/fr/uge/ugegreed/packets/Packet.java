@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 /**
  * Represents a TCP packet
  */
-public sealed interface Packet permits InitPacket, ReqPacket, UpdtPacket {
+public sealed interface Packet permits AccPacket, InitPacket, ReqPacket, UpdtPacket {
   /**
    * Defines the packet types and associated code
    */
