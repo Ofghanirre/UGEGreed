@@ -9,6 +9,10 @@ import java.util.Objects;
 
 /**
  * Represents a DISC packet
+ *
+ * @param nb_reco Number of connection to expect after a deconnection (essentially 0 for children, n for parent)
+ * @param nb_jobs Number of jobs to read
+ * @param jobs Jobs to read, consist of an Long and an Host (InetSocketAddress) (6 bytes on ByteBuffer)
  */
 public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) implements Packet {
 
