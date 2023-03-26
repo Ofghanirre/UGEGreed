@@ -21,6 +21,15 @@ public class TypeToByteWriterTest {
     }
 
     @Test
+    public void simpleStringWithCharset() {
+        var string = "coucou";
+        var bb = TypeToByteWriter.getString(string, StandardCharsets.US_ASCII);
+        bb.getInt();
+        var result = StandardCharsets.US_ASCII.decode(bb).toString();
+        assertEquals("coucou", result);
+    }
+
+    @Test
     public void simpleHost() throws UnknownHostException {
         var host = new InetSocketAddress("42.69.00.30", 7777);
         var bb = TypeToByteWriter.getHost(host);
