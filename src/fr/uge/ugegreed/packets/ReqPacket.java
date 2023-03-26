@@ -17,7 +17,7 @@ public record ReqPacket(long job_id, String jar_URL, String class_name, long ran
     private static final byte CODE = PacketCode.REQ.getCode();
 
     public ReqPacket {
-        if (job_id < 1) {
+        if (job_id < 0) {
             throw new IllegalArgumentException("job_id must be positive");
         }
         Objects.requireNonNull(jar_URL);

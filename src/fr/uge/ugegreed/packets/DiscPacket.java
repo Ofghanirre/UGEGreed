@@ -18,7 +18,7 @@ public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) imple
 
   public record InnerDiscPacket(long job_id, InetSocketAddress new_upstream) {
     public InnerDiscPacket {
-      if (job_id < 1) {
+      if (job_id < 0) {
         throw new IllegalArgumentException("job_id must be positive");
       }
       Objects.requireNonNull(new_upstream);

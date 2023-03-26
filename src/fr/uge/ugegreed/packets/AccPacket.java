@@ -12,7 +12,7 @@ public record AccPacket(long job_id, long range_start, long range_end) implement
     private static final byte CODE = PacketCode.ACC.getCode();
 
     public AccPacket {
-        if (job_id < 1) {
+        if (job_id < 0) {
             throw new IllegalArgumentException("job_id must be positive");
         }
         if (range_start > range_end) {

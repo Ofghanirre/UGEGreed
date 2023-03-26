@@ -12,7 +12,7 @@ public record RefPacket(long job_id, long range_start, long range_end) implement
     private static final byte CODE = PacketCode.REF.getCode();
 
     public RefPacket {
-        if (job_id < 1) {
+        if (job_id < 0) {
             throw new IllegalArgumentException("job_id must be positive");
         }
         if (range_start > range_end) {

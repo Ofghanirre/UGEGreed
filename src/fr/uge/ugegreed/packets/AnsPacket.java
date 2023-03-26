@@ -15,7 +15,7 @@ public record AnsPacket(long job_id, long number, String result) implements Pack
     private static final byte CODE = PacketCode.ANS.getCode();
 
     public AnsPacket {
-        if (job_id < 1) {
+        if (job_id < 0) {
             throw new IllegalArgumentException("job_id must be positive");
         }
         Objects.requireNonNull(result);
