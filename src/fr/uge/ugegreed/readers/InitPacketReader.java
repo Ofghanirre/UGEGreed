@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 public class InitPacketReader implements Reader<InitPacket> {
   private enum State {
     DONE, WAITING, ERROR
-  };
+  }
 
   private State state = State.WAITING;
   private final IntReader intReader = new IntReader();
@@ -31,6 +31,10 @@ public class InitPacketReader implements Reader<InitPacket> {
     }
 
     potential = intReader.get();
+    if (potential < 0) {
+      state = State.ERROR;
+      return ProcessStatus.ERROR;
+    }
     state = State.DONE;
 
     return ProcessStatus.DONE;

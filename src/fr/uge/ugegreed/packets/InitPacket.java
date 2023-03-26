@@ -10,7 +10,7 @@ public record InitPacket(int potential) implements Packet {
   private static final byte CODE = Packet.PacketCode.INIT.getCode();
 
   public InitPacket {
-    if (potential < 1) {
+    if (potential < 0) {
       throw new IllegalArgumentException("potential must be positive");
     }
   }
