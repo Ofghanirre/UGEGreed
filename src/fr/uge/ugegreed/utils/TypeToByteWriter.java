@@ -19,7 +19,7 @@ public class TypeToByteWriter {
      */
     public static ByteBuffer getString(String input) {
         ByteBuffer translatedInput = cs.encode(input);
-        return ByteBuffer.allocate(Integer.BYTES + translatedInput.capacity()).putInt(translatedInput.capacity()).put(translatedInput).flip();
+        return ByteBuffer.allocate(Integer.BYTES + translatedInput.remaining()).putInt(translatedInput.remaining()).put(translatedInput).flip();
     }
 
     /**

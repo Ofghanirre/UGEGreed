@@ -20,7 +20,7 @@ public record RediPacket(InetSocketAddress new_parent) implements Packet {
   @Override
   public ByteBuffer toBuffer() {
     var new_parent_bb = TypeToByteWriter.getHost(new_parent);
-    return ByteBuffer.allocate(Byte.BYTES + new_parent_bb.capacity()).put(CODE).put(new_parent_bb).flip();
+    return ByteBuffer.allocate(Byte.BYTES + new_parent_bb.remaining()).put(CODE).put(new_parent_bb).flip();
   }
 
   @Override
