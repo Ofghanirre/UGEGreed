@@ -75,6 +75,7 @@ public class DiscPacketReader implements Reader<DiscPacket> {
           step++;
           if (step >= numberOfJobs) { state = State.DONE; }
         }
+        default -> throw new AssertionError();
       }
     }
 
