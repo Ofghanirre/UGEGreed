@@ -106,7 +106,7 @@ public class BaseReader<T> implements Reader<T> {
         return new BaseReader<>(6, byteBuffer -> {
             var ip = new byte[4];
             IntStream.range(0, 4).forEach(i -> ip[i] = byteBuffer.get());
-            var port = byteBuffer.getShort();
+            var port = Short.toUnsignedInt(byteBuffer.getShort());
             try {
                 return new InetSocketAddress(InetAddress.getByAddress(ip), port);
             } catch (UnknownHostException e) {
