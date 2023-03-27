@@ -13,7 +13,7 @@ public class InitPacketReader implements Reader<InitPacket> {
   }
 
   private State state = State.WAITING;
-  private final Reader<Integer> intReader = BaseReaders.intReader();
+  private final Reader<Integer> intReader = BaseReader.intReader();
   private int potential;
 
   @Override
