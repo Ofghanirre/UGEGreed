@@ -14,7 +14,7 @@ import java.util.function.Function;
  * These do NOT read the first initial byte, as it's considered to have been read already
  * @param <T> packet type to be read
  */
-public class PacketReader<T> implements Reader<T> {
+public class BasePacketReader<T> implements Reader<T> {
   private enum State {
     DONE, WAITING, ERROR
   }
@@ -26,7 +26,7 @@ public class PacketReader<T> implements Reader<T> {
   private final Function<List<Reader<?>>, Optional<T>> extractor;
   private T value;
 
-  private PacketReader(List<Reader<?>> readers, Function<List<Reader<?>>, Optional<T>> extractor) {
+  private BasePacketReader(List<Reader<?>> readers, Function<List<Reader<?>>, Optional<T>> extractor) {
     this.readers = readers;
     numberOfSteps = readers.size();
     this.extractor = extractor;
@@ -81,7 +81,7 @@ public class PacketReader<T> implements Reader<T> {
   // what types each get() call will return
   @SuppressWarnings("unchecked")
   public static Reader<InitPacket> initPacketReader() {
-    return new PacketReader<>(List.of(BaseReader.intReader()), readers -> {
+    return new BasePacketReader<>(List.of(BaseReader.intReader()), readers -> {
       int value = ((Reader<Integer>) readers.get(0)).get();
       if (value < 0) {
         return Optional.empty();
@@ -92,7 +92,7 @@ public class PacketReader<T> implements Reader<T> {
 
   @SuppressWarnings("unchecked")
   public static Reader<UpdtPacket> updtPacketReader() {
-    return new PacketReader<>(List.of(BaseReader.intReader()), readers -> {
+    return new BasePacketReader<>(List.of(BaseReader.intReader()), readers -> {
       int value = ((Reader<Integer>) readers.get(0)).get();
       if (value < 0) {
         return Optional.empty();
@@ -103,7 +103,7 @@ public class PacketReader<T> implements Reader<T> {
 
   @SuppressWarnings("unchecked")
   public static Reader<ReqPacket> reqPacketReader() {
-    return new PacketReader<>(List.of(BaseReader.longReader(), new StringReader(StandardCharsets.US_ASCII),
+    return new BasePacketReader<>(List.of(BaseReader.longReader(), new StringReader(StandardCharsets.US_ASCII),
       new StringReader(), BaseReader.longReader(), BaseReader.longReader()),
       readers -> {
         var job_id = ((Reader<Long>) readers.get(0)).get();
@@ -122,7 +122,7 @@ public class PacketReader<T> implements Reader<T> {
 
   @SuppressWarnings("unchecked")
   public static Reader<AccPacket> accPacketReader() {
-    return new PacketReader<>(List.of(BaseReader.longReader(), BaseReader.longReader(), BaseReader.longReader()),
+    return new BasePacketReader<>(List.of(BaseReader.longReader(), BaseReader.longReader(), BaseReader.longReader()),
         readers -> {
           var job_id = ((Reader<Long>) readers.get(0)).get();
           var rangeStart = ((Reader<Long>) readers.get(1)).get();
@@ -138,7 +138,7 @@ public class PacketReader<T> implements Reader<T> {
 
   @SuppressWarnings("unchecked")
   public static Reader<RefPacket> refPacketReader() {
-    return new PacketReader<>(List.of(BaseReader.longReader(), BaseReader.longReader(), BaseReader.longReader()),
+    return new BasePacketReader<>(List.of(BaseReader.longReader(), BaseReader.longReader(), BaseReader.longReader()),
         readers -> {
           var job_id = ((Reader<Long>) readers.get(0)).get();
           var rangeStart = ((Reader<Long>) readers.get(1)).get();
@@ -154,7 +154,7 @@ public class PacketReader<T> implements Reader<T> {
 
   @SuppressWarnings("unchecked")
   public static Reader<AnsPacket> ansPacketReader() {
-    return new PacketReader<>(List.of(BaseReader.longReader(), BaseReader.longReader(), new StringReader()),
+    return new BasePacketReader<>(List.of(BaseReader.longReader(), BaseReader.longReader(), new StringReader()),
       readers -> {
         var job_id = ((Reader<Long>) readers.get(0)).get();
         var number = ((Reader<Long>) readers.get(1)).get();
@@ -170,7 +170,7 @@ public class PacketReader<T> implements Reader<T> {
 
   @SuppressWarnings("unchecked")
   public static Reader<RediPacket> rediPacketReader() {
-    return new PacketReader<>(List.of(BaseReader.hostReader()),
+    return new BasePacketReader<>(List.of(BaseReader.hostReader()),
       readers -> {
         var host = ((Reader<InetSocketAddress>) readers.get(0)).get();
 
