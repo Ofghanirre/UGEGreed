@@ -3,6 +3,7 @@ package fr.uge.ugegreed.readers;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 public class StringReader implements Reader<String> {
 	private enum State {
@@ -10,14 +11,19 @@ public class StringReader implements Reader<String> {
 	}
 	
 	private static final int BUFFER_SIZE = 1024;
-	private static final Charset UTF8 = StandardCharsets.UTF_8;
+	private final Charset charset;
 	
 	private State state = State.WAITING_SIZE;
 	private final ByteBuffer internalBuffer = ByteBuffer.allocate(BUFFER_SIZE);
 	private String value;
 	
-	public StringReader() {
+	public StringReader(Charset charset) {
+		this.charset = Objects.requireNonNull(charset);
 		internalBuffer.limit(Integer.BYTES);
+	}
+
+	public StringReader() {
+		this(StandardCharsets.UTF_8);
 	}
 
 	@Override
@@ -55,7 +61,7 @@ public class StringReader implements Reader<String> {
 			}
 			case WAITING_STRING -> {
 				internalBuffer.flip();
-				value = UTF8.decode(internalBuffer).toString();
+				value = charset.decode(internalBuffer).toString();
 				state = State.DONE;
 				return ProcessStatus.DONE;
 			}
