@@ -68,9 +68,7 @@ public class StringReaderTest {
     @Test
     public void errorGet() {
         var sr = new StringReader();
-        assertThrows(IllegalStateException.class, () -> {
-            var res = sr.get();
-        });
+        assertThrows(IllegalStateException.class, sr::get);
     }
 
     @Test
@@ -83,11 +81,15 @@ public class StringReaderTest {
     }
 
     @Test
-    public void errorTooBig() {
-        var sr = new StringReader();
+    public void internalBufferMustBeMadeBigger() {
+        var sr = new StringReader(StandardCharsets.UTF_8, 16);
         var bb = ByteBuffer.allocate(1024);
-        var bytes = StandardCharsets.UTF_8.encode("aaaaa");
-        bb.putInt(1025).put(bytes);
-        assertEquals(Reader.ProcessStatus.ERROR, sr.process(bb));
+        var string = "abcabcabcabcabcabcabcabcabcabcabc";
+        var bytes = StandardCharsets.UTF_8.encode(string);
+        bb.putInt(bytes.remaining()).put(bytes);
+        assertEquals(Reader.ProcessStatus.DONE, sr.process(bb));
+        assertEquals(string, sr.get());
+        assertEquals(0, bb.position());
+        assertEquals(bb.capacity(), bb.limit());
     }
 }

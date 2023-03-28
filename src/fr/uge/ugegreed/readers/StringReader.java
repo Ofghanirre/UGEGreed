@@ -5,6 +5,10 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
+/**
+ * Reader for strings. They are prefixed by an integer which
+ * indicates the size of the encoded string in bytes.
+ */
 public class StringReader implements Reader<String> {
 	private enum State {
     DONE, WAITING_SIZE, WAITING_STRING, ERROR
@@ -14,16 +18,36 @@ public class StringReader implements Reader<String> {
 	private final Charset charset;
 	
 	private State state = State.WAITING_SIZE;
-	private final ByteBuffer internalBuffer = ByteBuffer.allocate(BUFFER_SIZE);
+	private ByteBuffer internalBuffer;
 	private String value;
-	
-	public StringReader(Charset charset) {
+
+	/**
+	 * Creates a new StringReader, with a custom initial internal buffer size
+	 * @param charset charset to use for decoding
+	 * @param bufferSize initial size of the internal buffer
+	 */
+	public StringReader(Charset charset, int bufferSize) {
+		if (bufferSize < 1) {
+			throw new IllegalArgumentException("bufferSize must be positive");
+		}
+		internalBuffer = ByteBuffer.allocate(bufferSize);
 		this.charset = Objects.requireNonNull(charset);
 		internalBuffer.limit(Integer.BYTES);
 	}
 
+	/**
+	 * Creates a new StringReader
+	 * @param charset charset to use for decoding
+	 */
+	public StringReader(Charset charset) {
+		this(charset, BUFFER_SIZE);
+	}
+
+	/**
+	 * Creates a new StringReader, using UTF8 as charset for decoding
+	 */
 	public StringReader() {
-		this(StandardCharsets.UTF_8);
+		this(StandardCharsets.UTF_8, BUFFER_SIZE);
 	}
 
 	@Override
@@ -51,9 +75,12 @@ public class StringReader implements Reader<String> {
 			case WAITING_SIZE -> {
 				internalBuffer.flip();
 				var size = internalBuffer.getInt();
-				if (size > BUFFER_SIZE || size < 0) { 
+				if (size < 0) {
 					state = State.ERROR;
 					return ProcessStatus.ERROR;
+				}
+				if (size > internalBuffer.capacity()) {
+					internalBuffer = ByteBuffer.allocate(size + 1);
 				}
 				internalBuffer.clear();
 				internalBuffer.limit(size);
