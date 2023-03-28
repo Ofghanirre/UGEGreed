@@ -1,14 +1,14 @@
 package fr.uge.ugegreed;
 
+import fr.uge.ugegreed.packets.InitPacket;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -60,8 +60,8 @@ public class Controller {
 
     if (parentAddress != null) {
       parentSocketChannel.configureBlocking(false);
-      // TODO: create context + attach
-      parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
+      var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
+      key.attach(new ConnectionContext(this, key));
       parentSocketChannel.connect(parentAddress);
     }
 
@@ -77,5 +77,53 @@ public class Controller {
   }
 
   private void treatKey(SelectionKey key) {
+    try {
+      if (key.isValid() && key.isAcceptable()) {
+        doAccept(key);
+      }
+    } catch (IOException ioe) {
+      // lambda call in select requires to tunnel IOException
+      throw new UncheckedIOException(ioe);
+    }
+    try {
+      if (key.isValid() && key.isConnectable()) {
+        ((ConnectionContext) key.attachment()).doConnect();
+      }
+      if (key.isValid() && key.isWritable()) {
+        ((ConnectionContext) key.attachment()).doWrite();
+      }
+      if (key.isValid() && key.isReadable()) {
+        ((ConnectionContext) key.attachment()).doRead();
+      }
+    }
+    catch (IOException e) {
+      logger.log(Level.INFO, "Connection closed with client due to IOException", e);
+      silentlyClose(key);
+    }
+  }
+
+  private void doAccept(SelectionKey key) throws IOException {
+    var ssc = (ServerSocketChannel) key.channel();
+    var sc = ssc.accept();
+    if (sc == null) {
+      logger.warning("Failed to accept socket channel");
+      return;
+    }
+    logger.info("Client " + sc.getRemoteAddress() + " connected.");
+    sc.configureBlocking(false);
+    var clientKey = sc.register(selector, SelectionKey.OP_READ);
+    var context = new ConnectionContext(this, clientKey);
+    clientKey.attach(context);
+
+    // TODO
+    context.queuePacket(new InitPacket(1337));
+  }
+
+  private void silentlyClose(SelectionKey key) {
+    try {
+      key.channel().close();
+    } catch (IOException e) {
+      // ignore exception
+    }
   }
 }
