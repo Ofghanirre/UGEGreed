@@ -2,11 +2,9 @@ package fr.uge.ugegreed.tests;
 
 import fr.uge.ugegreed.readers.BaseReader;
 import fr.uge.ugegreed.readers.Reader;
-import fr.uge.ugegreed.readers.StringReader;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -109,29 +107,7 @@ public class BaseReaderTest {
 
     @Test
     public void errorGet() {
-        var sr = new StringReader();
-        assertThrows(IllegalStateException.class, sr::get);
-    }
-
-    @Test
-    public void errorNeg() {
-        var sr = new StringReader();
-        var bb = ByteBuffer.allocate(1024);
-        var bytes = StandardCharsets.UTF_8.encode("aaaaa");
-        bb.putInt(-1).put(bytes);
-        assertEquals(Reader.ProcessStatus.ERROR, sr.process(bb));
-    }
-
-    @Test
-    public void internalBufferMustBeMadeBigger() {
-        var sr = new StringReader(StandardCharsets.UTF_8, 16);
-        var bb = ByteBuffer.allocate(1024);
-        var string = "abcabcabcabcabcabcabcabcabcabcabc";
-        var bytes = StandardCharsets.UTF_8.encode(string);
-        bb.putInt(bytes.remaining()).put(bytes);
-        assertEquals(Reader.ProcessStatus.DONE, sr.process(bb));
-        assertEquals(string, sr.get());
-        assertEquals(0, bb.position());
-        assertEquals(bb.capacity(), bb.limit());
+        var ir = BaseReader.intReader();
+        assertThrows(IllegalStateException.class, ir::get);
     }
 }
