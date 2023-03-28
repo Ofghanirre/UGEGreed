@@ -34,7 +34,7 @@ public record ReqPacket(long job_id, String jar_URL, String class_name, long ran
     @Override
     public ByteBuffer toBuffer() {
         var jar_url_bb = TypeToByteWriter.getString(jar_URL, StandardCharsets.US_ASCII);
-        var class_name_bb = TypeToByteWriter.getString(jar_URL);
+        var class_name_bb = TypeToByteWriter.getString(class_name);
         return ByteBuffer.allocate(Byte.BYTES + Long.BYTES*3 + jar_url_bb.remaining() + class_name_bb.remaining())
                 .put(CODE).putLong(job_id).put(jar_url_bb).put(class_name_bb).putLong(range_start)
                 .putLong(range_end).flip();
