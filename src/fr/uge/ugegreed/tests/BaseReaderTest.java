@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -87,24 +89,22 @@ public class BaseReaderTest {
     }
 
     @Test
-    public void smallBuffer() {
-        var string = "\u20ACa\u20AC";
-        var bb = ByteBuffer.allocate(1024);
-        var bytes = StandardCharsets.UTF_8.encode(string);
-        bb.putInt(bytes.remaining()).put(bytes).flip();
-        var bbSmall = ByteBuffer.allocate(2);
-        var sr = new StringReader();
-        while (bb.hasRemaining()) {
-            while (bb.hasRemaining() && bbSmall.hasRemaining()) {
-                bbSmall.put(bb.get());
-            }
-            if (bb.hasRemaining()) {
-                assertEquals(Reader.ProcessStatus.REFILL, sr.process(bbSmall));
-            } else {
-                assertEquals(Reader.ProcessStatus.DONE, sr.process(bbSmall));
-            }
-        }
-        assertEquals(string, sr.get());
+    public void largeBuffer() {
+        List<Integer> integers = IntStream.range(0, 1000).boxed().toList();
+        var bb = ByteBuffer.allocate(Integer.BYTES * integers.size());
+        integers.forEach(bb::putInt);
+
+        var intReader = BaseReader.intReader();
+        integers.forEach(integer -> {
+            var state = intReader.process(bb);
+            var result = intReader.get();
+            assertEquals(Reader.ProcessStatus.DONE, state);
+            assertEquals(result, integer);
+            intReader.reset();
+        });
+
+        assertEquals(0, bb.position());
+        assertEquals(bb.capacity(), bb.limit());
     }
 
     @Test
