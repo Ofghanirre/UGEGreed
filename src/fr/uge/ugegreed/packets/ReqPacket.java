@@ -23,6 +23,9 @@ public record ReqPacket(long job_id, String jar_URL, String class_name, long ran
         }
         Objects.requireNonNull(jar_URL);
         Objects.requireNonNull(class_name);
+        if (jar_URL.isEmpty() || class_name.isEmpty()) {
+            throw new IllegalArgumentException("jarURL and className must not be empty");
+        }
         if (range_start > range_end) {
             throw new IllegalArgumentException("invalid range, range_start must be lower or equal to range_end");
         }
