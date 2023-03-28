@@ -4,6 +4,9 @@ import fr.uge.ugegreed.readers.BaseReader;
 import fr.uge.ugegreed.readers.Reader;
 import org.junit.jupiter.api.Test;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -60,6 +63,26 @@ public class BaseReaderTest {
         assertEquals(0, bb.position());
         assertEquals(bb.capacity(), bb.limit());
     }
+
+    @Test
+    public void simpleHost() throws UnknownHostException {
+        byte[] ip = {127, 0, 0, 1};
+        short port = 7777;
+        var address = new InetSocketAddress(InetAddress.getByAddress(ip), port);
+        var bb = ByteBuffer.allocate(ip.length + Short.BYTES);
+        bb.put(ip).putShort(port);
+
+        var hostReader = BaseReader.hostReader();
+        var state = hostReader.process(bb);
+        var result = hostReader.get();
+
+        assertEquals(Reader.ProcessStatus.DONE, state);
+        assertEquals(result.getAddress(), address.getAddress());
+        assertEquals(result.getPort(), address.getPort());
+        assertEquals(0, bb.position());
+        assertEquals(bb.capacity(), bb.limit());
+    }
+
 
     @Test
     public void reset() {
