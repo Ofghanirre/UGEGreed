@@ -110,7 +110,7 @@ public class BaseReaderTest {
     }
 
     @Test
-    public void largeBuffer() {
+    public void largeIntBuffer() {
         List<Integer> integers = IntStream.range(0, 1000).boxed().toList();
         var bb = ByteBuffer.allocate(Integer.BYTES * integers.size());
         integers.forEach(bb::putInt);
