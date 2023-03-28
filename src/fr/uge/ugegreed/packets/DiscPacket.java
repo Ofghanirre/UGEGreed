@@ -35,6 +35,11 @@ public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) imple
     public static int getSize() {
       return Long.BYTES + 6;
     }
+
+    @Override
+    public String toString() {
+      return "job_id: " + job_id + ", new_upstream: " + new_upstream;
+    }
   }
 
   private static final byte CODE = PacketCode.DISC.getCode();
@@ -58,11 +63,11 @@ public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) imple
     for (InnerDiscPacket job : jobs) {
       result.put(job.toBuffer());
     }
-    return result;
+    return result.flip();
   }
 
   @Override
   public String toString() {
-    return "DISC packet(nb_reco: " + nb_reco + ", nb_jobs: " + nb_jobs + ", jobs:" + Arrays.toString(jobs) + ")";
+    return "DISC packet(nb_reco: " + nb_reco + ", nb_jobs: " + nb_jobs + ", jobs: " + Arrays.toString(jobs) + ")";
   }
 }

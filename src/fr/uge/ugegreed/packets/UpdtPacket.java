@@ -10,7 +10,7 @@ public record UpdtPacket(int potential) implements Packet  {
     private static final byte CODE = Packet.PacketCode.UPDT.getCode();
 
     public UpdtPacket {
-        if (potential < 1) {
+        if (potential < 0) {
             throw new IllegalArgumentException("potential must be positive");
         }
     }
