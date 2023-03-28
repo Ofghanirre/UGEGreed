@@ -63,20 +63,25 @@ public class BaseReaderTest {
 
     @Test
     public void reset() {
-        var string = "\u20ACa\u20AC";
-        var string2 = "\u20ACa\u20ACabcd";
-        var bb = ByteBuffer.allocate(1024);
-        var bytes = StandardCharsets.UTF_8.encode(string);
-        var bytes2 = StandardCharsets.UTF_8.encode(string2);
-        bb.putInt(bytes.remaining()).put(bytes).putInt(bytes2.remaining()).put(bytes2);
-        StringReader sr = new StringReader();
-        assertEquals(Reader.ProcessStatus.DONE, sr.process(bb));
-        assertEquals(string, sr.get());
-        assertEquals(15, bb.position());
+        int integer1 = 42;
+        int integer2 = 77;
+        var bb = ByteBuffer.allocate(Integer.BYTES * 2);
+        bb.putInt(integer1).putInt(integer2);
+
+        var intReader = BaseReader.intReader();
+        var state1 = intReader.process(bb);
+        var result1 = intReader.get();
+
+        assertEquals(Reader.ProcessStatus.DONE, state1);
+        assertEquals(integer1, result1);
+        assertEquals(Integer.BYTES, bb.position());
         assertEquals(bb.capacity(), bb.limit());
-        sr.reset();
-        assertEquals(Reader.ProcessStatus.DONE, sr.process(bb));
-        assertEquals(string2, sr.get());
+        intReader.reset();
+
+        var state2 = intReader.process(bb);
+        var result2 = intReader.get();
+        assertEquals(Reader.ProcessStatus.DONE, state2);
+        assertEquals(integer2, result2);
         assertEquals(0, bb.position());
         assertEquals(bb.capacity(), bb.limit());
     }
