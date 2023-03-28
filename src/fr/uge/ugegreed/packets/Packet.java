@@ -1,6 +1,7 @@
 package fr.uge.ugegreed.packets;
 
 import java.nio.ByteBuffer;
+import java.util.Optional;
 
 /**
  * Represents a TCP packet
@@ -17,8 +18,28 @@ public sealed interface Packet permits AccPacket, AnsPacket, DiscPacket, InitPac
       this.code = code;
     }
 
-    byte getCode() {
+    public byte getCode() {
       return (byte) code;
+    }
+
+    /**
+     * Returns the packet type associated to given byte value
+     * @param b byte value
+     * @return packet type associated to given byte value
+     */
+    static public Optional<PacketCode> getPacketCodeFromByte(Byte b) {
+      return switch (b) {
+        case 1 -> Optional.of(INIT);
+        case 2 -> Optional.of(UPDT);
+        case 3 -> Optional.of(REQ);
+        case 4 -> Optional.of(ACC);
+        case 5 -> Optional.of(REF);
+        case 6 -> Optional.of(ANS);
+        case 7 -> Optional.of(REDI);
+        case 8 -> Optional.of(DISC);
+        case 9 -> Optional.of(OK_DISC);
+        default -> Optional.empty();
+      };
     }
   }
 
