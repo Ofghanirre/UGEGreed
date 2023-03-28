@@ -31,6 +31,6 @@ public class RediPacketTest {
   @Test
   public void correctToString() {
     var packet = new RediPacket(new InetSocketAddress("127.0.0.1", 7777));
-    assertEquals(packet.toString(), "REDI packet(new_parent: /127.0.0.1:7777)");
+    assertEquals("REDI packet(new_parent: /127.0.0.1:7777)", packet.toString());
   }
 }

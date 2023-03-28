@@ -68,6 +68,6 @@ public class DiscPacketTest {
     var packet = new DiscPacket(1, 1, new DiscPacket.InnerDiscPacket[]{
         new DiscPacket.InnerDiscPacket(12,
             new InetSocketAddress("127.0.0.1", 7777))});
-    assertEquals(packet.toString(), "DISC packet(nb_reco: 1, nb_jobs: 1, jobs: [job_id: 12, new_upstream: /127.0.0.1:7777])");
+    assertEquals("DISC packet(nb_reco: 1, nb_jobs: 1, jobs: [job_id: 12, new_upstream: /127.0.0.1:7777])", packet.toString());
   }
 }

@@ -33,6 +33,6 @@ public class RefPacketTest {
   @Test
   public void correctToString() {
     var packet = new RefPacket(1337,42, 420);
-    assertEquals(packet.toString(), "REF packet(job_id: 1337, range_start: 42, range_end: 420)");
+    assertEquals("REF packet(job_id: 1337, range_start: 42, range_end: 420)", packet.toString());
   }
 }

@@ -47,6 +47,6 @@ public class ReqPacketTest {
   public void correctToString() {
     var packet = new ReqPacket(1337, "www.jars.com/jar1", "HelloWorld",
         42, 420);
-    assertEquals(packet.toString(), "REQ packet(job_id: 1337, jar_URL: www.jars.com/jar1, class_name: HelloWorld, range_start: 42, range_end: 420)");
+    assertEquals("REQ packet(job_id: 1337, jar_URL: www.jars.com/jar1, class_name: HelloWorld, range_start: 42, range_end: 420)", packet.toString());
   }
 }

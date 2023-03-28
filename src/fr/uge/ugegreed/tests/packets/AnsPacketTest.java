@@ -34,6 +34,6 @@ public class AnsPacketTest {
   @Test
   public void correctToString() {
     var packet = new AnsPacket(1,2, "3 bras de fer chinois");
-    assertEquals(packet.toString(), "ANS packet(job_id: 1, number: 2, result: 3 bras de fer chinois)");
+    assertEquals("ANS packet(job_id: 1, number: 2, result: 3 bras de fer chinois)", packet.toString());
   }
 }

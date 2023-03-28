@@ -25,6 +25,6 @@ public class InitPacketTest {
   @Test
   public void correctToString() {
     var packet = new InitPacket(42);
-    assertEquals(packet.toString(), "INIT packet(potential: 42)");
+    assertEquals("INIT packet(potential: 42)", packet.toString());
   }
 }

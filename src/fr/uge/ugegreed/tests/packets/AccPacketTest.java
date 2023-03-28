@@ -33,6 +33,6 @@ public class AccPacketTest {
   @Test
   public void correctToString() {
     var packet = new AccPacket(1337,42, 420);
-    assertEquals(packet.toString(), "ACC packet(job_id: 1337, range_start: 42, range_end: 420)");
+    assertEquals("ACC packet(job_id: 1337, range_start: 42, range_end: 420)", packet.toString());
   }
 }

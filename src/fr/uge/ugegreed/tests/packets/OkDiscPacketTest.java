@@ -19,6 +19,6 @@ public class OkDiscPacketTest {
   @Test
   public void correctToString() {
     var packet = new OkDiscPacket();
-    assertEquals(packet.toString(), "OK_DISC packet()");
+    assertEquals("OK_DISC packet()", packet.toString());
   }
 }

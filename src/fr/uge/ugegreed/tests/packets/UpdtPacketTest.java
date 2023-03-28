@@ -25,6 +25,6 @@ public class UpdtPacketTest {
   @Test
   public void correctToString() {
     var packet = new UpdtPacket(42);
-    assertEquals(packet.toString(), "UPDT packet(potential: 42)");
+    assertEquals("UPDT packet(potential: 42)", packet.toString());
   }
 }
