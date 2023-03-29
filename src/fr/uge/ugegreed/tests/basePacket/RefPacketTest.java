@@ -1,6 +1,5 @@
 package fr.uge.ugegreed.tests.basePacket;
 
-import fr.uge.ugegreed.packets.AccPacket;
 import fr.uge.ugegreed.packets.RefPacket;
 import fr.uge.ugegreed.readers.BasePacketReader;
 import fr.uge.ugegreed.readers.Reader;
