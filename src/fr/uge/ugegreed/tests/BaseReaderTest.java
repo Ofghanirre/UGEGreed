@@ -27,7 +27,7 @@ public class BaseReaderTest {
         var result = intReader.get();
 
         assertEquals(Reader.ProcessStatus.DONE, state);
-        assertEquals(result, integer);
+        assertEquals(integer, result);
         assertEquals(0, bb.position());
         assertEquals(bb.capacity(), bb.limit());
     }
@@ -43,7 +43,7 @@ public class BaseReaderTest {
         var result = byteReader.get();
 
         assertEquals(Reader.ProcessStatus.DONE, state);
-        assertEquals(result, _byte);
+        assertEquals(_byte, result);
         assertEquals(0, bb.position());
         assertEquals(bb.capacity(), bb.limit());
     }
@@ -59,7 +59,7 @@ public class BaseReaderTest {
         var result = longReader.get();
 
         assertEquals(Reader.ProcessStatus.DONE, state);
-        assertEquals(result, _long);
+        assertEquals(_long, result);
         assertEquals(0, bb.position());
         assertEquals(bb.capacity(), bb.limit());
     }
@@ -77,8 +77,8 @@ public class BaseReaderTest {
         var result = hostReader.get();
 
         assertEquals(Reader.ProcessStatus.DONE, state);
-        assertEquals(result.getAddress(), address.getAddress());
-        assertEquals(result.getPort(), address.getPort());
+        assertEquals(address.getAddress(), result.getAddress());
+        assertEquals(address.getPort(), result.getPort());
         assertEquals(0, bb.position());
         assertEquals(bb.capacity(), bb.limit());
     }
@@ -120,7 +120,7 @@ public class BaseReaderTest {
             var state = intReader.process(bb);
             var result = intReader.get();
             assertEquals(Reader.ProcessStatus.DONE, state);
-            assertEquals(result, integer);
+            assertEquals(integer, result);
             intReader.reset();
         });
 
