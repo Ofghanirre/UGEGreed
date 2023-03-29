@@ -3,6 +3,7 @@ package fr.uge.ugegreed.tests.basePacket;
 import fr.uge.ugegreed.packets.AccPacket;
 import fr.uge.ugegreed.readers.BasePacketReader;
 import fr.uge.ugegreed.readers.Reader;
+import fr.uge.ugegreed.utils.TypeToByteWriter;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -64,6 +65,28 @@ public class AccPacketTest {
         assertEquals(packet, reader.get());
         assertEquals(0, buffer.position());
         assertEquals(buffer.capacity(), buffer.limit());
+    }
+
+    @Test
+    public void errorNegReqPacker() {
+        long job_id = -1;
+        long range_start = 0;
+        long range_end = 5;
+
+        var buffer = ByteBuffer.allocate(Byte.BYTES + Long.BYTES*3);
+        buffer.putLong(job_id).putLong(range_start).putLong(range_end);
+
+        var reader = BasePacketReader.accPacketReader();
+        // JOB_ID INVALID
+        assertEquals(Reader.ProcessStatus.ERROR, reader.process(buffer));
+
+        long job_id_correct = 2;;
+        buffer.clear();
+        buffer.putLong(job_id_correct).putLong(range_end).putLong(range_start);
+        reader.reset();
+
+        // RANGE INVALID
+        assertEquals(Reader.ProcessStatus.ERROR, reader.process(buffer));
     }
 
     @Test
