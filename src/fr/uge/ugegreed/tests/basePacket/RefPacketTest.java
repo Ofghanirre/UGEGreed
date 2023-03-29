@@ -91,7 +91,7 @@ public class RefPacketTest {
 
     @Test
     public void errorGetAccPacket() {
-        var reader = BasePacketReader.accPacketReader();
+        var reader = BasePacketReader.refPacketReader();
         assertThrows(IllegalStateException.class, reader::get);
     }
 }
