@@ -68,7 +68,7 @@ public class AccPacketTest {
     }
 
     @Test
-    public void errorNegReqPacker() {
+    public void errorNegAccPacker() {
         long job_id = -1;
         long range_start = 0;
         long range_end = 5;
