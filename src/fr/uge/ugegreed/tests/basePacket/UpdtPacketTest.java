@@ -79,5 +79,4 @@ public class UpdtPacketTest {
         var reader = BasePacketReader.updtPacketReader();
         assertThrows(IllegalStateException.class, reader::get);
     }
-
 }

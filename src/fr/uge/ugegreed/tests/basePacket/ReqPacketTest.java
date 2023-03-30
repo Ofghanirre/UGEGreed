@@ -84,7 +84,7 @@ public class ReqPacketTest {
         // JOB_ID INVALID
         assertEquals(Reader.ProcessStatus.ERROR, reader.process(buffer));
 
-        long job_id_correct = 2;;
+        long job_id_correct = 2;
         buffer.clear();
         jar_url_bb = TypeToByteWriter.getString(jar_Url);
         main_bb = TypeToByteWriter.getString(main);
@@ -100,5 +100,4 @@ public class ReqPacketTest {
         var reader = BasePacketReader.reqPacketReader();
         assertThrows(IllegalStateException.class, reader::get);
     }
-
 }
