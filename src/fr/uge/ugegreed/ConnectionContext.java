@@ -145,7 +145,7 @@ public class ConnectionContext {
   private void silentlyClose() {
     try {
       sc.close();
-    } catch (IOException e) {
+    } catch (IOException ignored) {
       // ignore exception
     }
   }
