@@ -70,4 +70,19 @@ public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) imple
   public String toString() {
     return "DISC packet(nb_reco: " + nb_reco + ", nb_jobs: " + nb_jobs + ", jobs: " + Arrays.toString(jobs) + ")";
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DiscPacket that = (DiscPacket) o;
+    return nb_reco == that.nb_reco && nb_jobs == that.nb_jobs && Arrays.equals(jobs, that.jobs);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = Objects.hash(nb_reco, nb_jobs);
+    result = 31 * result + Arrays.hashCode(jobs);
+    return result;
+  }
 }
