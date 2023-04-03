@@ -1,23 +1,25 @@
 package fr.uge.ugegreed;
 
 
+import fr.uge.ugegreed.commands.*;
 import fr.uge.ugegreed.jobs.Jobs;
-import fr.uge.ugegreed.commands.Command;
-import fr.uge.ugegreed.commands.CommandDebug;
-import fr.uge.ugegreed.commands.CommandDisconnect;
-import fr.uge.ugegreed.commands.CommandStart;
 import fr.uge.ugegreed.packets.InitPacket;
 import fr.uge.ugegreed.packets.UpdtPacket;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.*;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -79,6 +81,7 @@ public class Controller {
           case CommandStart commandStart -> processStartCommand(commandStart);
           case CommandDisconnect commandDisconnect -> processDisconnectCommand(commandDisconnect);
           case CommandDebug commandDebug -> processDebugCommand(commandDebug);
+          case CommandHelp commandHelp -> processHelpCommand();
           default -> throw new UnsupportedOperationException("Unknown command: " + command);
         }
       }
@@ -105,6 +108,19 @@ public class Controller {
       // Code other debug codes here!
       default -> System.out.println("Unknown debug code: " + command.debugCode());
     }
+  }
+
+  private void processHelpCommand() {
+    System.out.println("Console Help:");
+    List<Command> commands = List.of(
+            new CommandHelp(),
+            new CommandDebug(CommandDebugCode.POTENTIAL),
+            new CommandStart("dummy", "dummy", 1, 2, "dummy"),
+            new CommandDisconnect()
+    );
+    System.out.println("Commands (" + commands.size() + ")\n");
+    System.out.println(commands.stream().map(Command::getName).collect(Collectors.joining(" - ")));
+    commands.forEach(c -> System.out.println(c.getHelp() + "\n"));
   }
 
   /**
