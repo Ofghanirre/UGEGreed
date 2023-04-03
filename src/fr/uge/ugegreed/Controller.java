@@ -97,7 +97,7 @@ public class Controller {
 
   private void processDebugCommand(CommandDebug command) {
     switch (command.debugCode()) {
-      case 1 -> {
+      case POTENTIAL -> {
         System.out.println("Total potential: " + potential);
         System.out.println("Neighboring potentials:");
         connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
