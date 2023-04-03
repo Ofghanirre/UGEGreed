@@ -1,5 +1,6 @@
 package fr.uge.ugegreed;
 
+import fr.uge.ugegreed.commands.Command;
 import fr.uge.ugegreed.packets.InitPacket;
 import fr.uge.ugegreed.packets.UpdtPacket;
 
@@ -9,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -25,8 +27,8 @@ public class Controller {
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
   private final SocketChannel parentSocketChannel;
-
   private int potential = 1;
+  private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
 
   /**
    * Creates a new controller
@@ -54,6 +56,31 @@ public class Controller {
   }
 
   /**
+   * Sends a console command to the controller
+   * @param command command to send
+   * @throws InterruptedException if the thread sending the command is interrupted
+   */
+  public void sendCommand(Command command) throws InterruptedException {
+    synchronized (commandQueue) {
+      commandQueue.put(command);
+      selector.wakeup();
+    }
+  }
+
+  private void processCommands() {
+    for (;;) {
+      synchronized (commandQueue) {
+        var command = commandQueue.poll();
+        if (command == null) { return; }
+        logger.info("Command received: " + command);
+//        switch (command) {
+//          default -> throw new UnsupportedOperationException("Unknown command: " + command);
+//        }
+      }
+    }
+  }
+
+  /**
    * Launches the controller
    * @throws IOException in case of TCP layer errors
    */
@@ -69,11 +96,13 @@ public class Controller {
       parentSocketChannel.connect(parentAddress);
     }
 
-    // TODO: start console thread
+    var console = new Console(this);
+    Thread.ofPlatform().daemon().start(console::consoleRun);
 
     while(!Thread.interrupted()) {
       try {
         selector.select(this::treatKey);
+        processCommands();
 
         // DEBUG
         System.out.println("Total potential: " + potential);
