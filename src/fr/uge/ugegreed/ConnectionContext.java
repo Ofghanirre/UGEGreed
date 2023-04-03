@@ -1,6 +1,8 @@
 package fr.uge.ugegreed;
 
+import fr.uge.ugegreed.packets.InitPacket;
 import fr.uge.ugegreed.packets.Packet;
+import fr.uge.ugegreed.packets.UpdtPacket;
 import fr.uge.ugegreed.readers.PacketReader;
 
 import java.io.IOException;
@@ -27,12 +29,37 @@ public class ConnectionContext {
 
   private final ArrayDeque<Packet> queue = new ArrayDeque<>();
 
-  private int potential;
+  private int potential = 1;
 
-  public ConnectionContext(Controller controller, SelectionKey key) {
+  public ConnectionContext(Controller controller, SelectionKey key) throws IOException {
     this.controller = Objects.requireNonNull(controller);
     this.key = Objects.requireNonNull(key);
     sc = (SocketChannel) key.channel();
+    remoteHost = (InetSocketAddress) sc.getRemoteAddress();
+  }
+
+  /**
+   * Returns potential on the side of the connection
+   * @return potential on the side of the connection
+   */
+  public int potential() {
+    return potential;
+  }
+
+  /**
+   * Returns the key this is attached to
+   * @return the key this is attached to
+   */
+  public SelectionKey key() {
+    return key;
+  }
+
+  /**
+   * Returns the remote host
+   * @return the remote host
+   */
+  public InetSocketAddress host() {
+    return remoteHost;
   }
 
   /**
@@ -48,6 +75,7 @@ public class ConnectionContext {
         case DONE -> {
           var packet = packetReader.get();
           logger.info("Received packet from " + remoteHost + ": " + packet);
+          treatPacket(packet);
           packetReader.reset();
         }
         case REFILL -> {return;}
@@ -56,6 +84,20 @@ public class ConnectionContext {
           return;
         }
       }
+    }
+  }
+
+  private void treatPacket(Packet packet) {
+    switch (packet) {
+      case InitPacket initPacket -> {
+        potential = initPacket.potential();
+        controller.reevaluatePotential();
+      }
+      case UpdtPacket updtPacket -> {
+        potential = updtPacket.potential();
+        controller.updateNeighbors(key);
+      }
+      default -> logger.warning("Unmanaged packet type: " + packet);
     }
   }
 

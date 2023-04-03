@@ -1,6 +1,7 @@
 package fr.uge.ugegreed;
 
 import fr.uge.ugegreed.packets.InitPacket;
+import fr.uge.ugegreed.packets.UpdtPacket;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -8,9 +9,9 @@ import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 /**
  * Main controller for the application.
@@ -24,6 +25,8 @@ public class Controller {
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
   private final SocketChannel parentSocketChannel;
+
+  private int potential = 1;
 
   /**
    * Creates a new controller
@@ -71,6 +74,10 @@ public class Controller {
     while(!Thread.interrupted()) {
       try {
         selector.select(this::treatKey);
+
+        // DEBUG
+        System.out.println("Total potential: " + potential);
+        connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " potential: " + ctx.potential()));
       } catch (UncheckedIOException tunneled) {
         throw tunneled.getCause();
       }
@@ -116,8 +123,14 @@ public class Controller {
     var context = new ConnectionContext(this, clientKey);
     clientKey.attach(context);
 
-    // TODO
-    context.queuePacket(new InitPacket(1337));
+    // Potential management
+    context.queuePacket(new InitPacket(potential));
+    reevaluatePotential();
+    connectedNodeStream().forEach(ctx -> {
+      if (ctx.key() != clientKey) {
+        ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
+      }
+    });
   }
 
   private void silentlyClose(SelectionKey key) {
@@ -128,12 +141,32 @@ public class Controller {
     }
   }
 
-  // Applies a consumer to the ConnnectionContext attached to every currently connected node
-  private void forEachConnectedNode(Consumer<ConnectionContext> action) {
-    selector.keys().forEach(key -> {
-      var attachment = key.attachment();
-      if (attachment instanceof ConnectionContext) {
-        action.accept((ConnectionContext) attachment);
+  // Returns a stream of the context of each connected node
+  private Stream<ConnectionContext> connectedNodeStream() {
+    return selector.keys().stream().map(SelectionKey::attachment)
+        .flatMap(a -> {
+          if (a instanceof ConnectionContext) { return Stream.of((ConnectionContext) a); }
+          return Stream.empty();
+        });
+  }
+
+  /**
+   * Reevaluates the total potential of the network
+   */
+  public void reevaluatePotential() {
+    potential = 1 + connectedNodeStream().reduce(0, (n, ctx) -> n + ctx.potential(), Integer::sum);
+  }
+
+  /**
+   * Broadcasts new potential value to all neighbor except the one the update
+   * package came from
+   * @param incomingHost host the update package came from
+   */
+  public void updateNeighbors(SelectionKey incomingHost) {
+    reevaluatePotential();
+    connectedNodeStream().forEach(ctx -> {
+      if (ctx.key() != incomingHost) {
+        ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
       }
     });
   }
