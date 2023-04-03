@@ -1,5 +1,9 @@
 package fr.uge.ugegreed;
 
+import fr.uge.ugegreed.commands.Command;
+import fr.uge.ugegreed.commands.CommandDebug;
+import fr.uge.ugegreed.commands.CommandDisconnect;
+import fr.uge.ugegreed.commands.CommandStart;
 import fr.uge.ugegreed.packets.InitPacket;
 import fr.uge.ugegreed.packets.UpdtPacket;
 
@@ -9,6 +13,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -25,8 +30,8 @@ public class Controller {
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
   private final SocketChannel parentSocketChannel;
-
   private int potential = 1;
+  private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
 
   /**
    * Creates a new controller
@@ -54,6 +59,55 @@ public class Controller {
   }
 
   /**
+   * Sends a console command to the controller
+   * @param command command to send
+   * @throws InterruptedException if the thread sending the command is interrupted
+   */
+  public void sendCommand(Command command) throws InterruptedException {
+    synchronized (commandQueue) {
+      commandQueue.put(command);
+      selector.wakeup();
+    }
+  }
+
+  private void processCommands() {
+    for (;;) {
+      synchronized (commandQueue) {
+        var command = commandQueue.poll();
+        if (command == null) { return; }
+        switch (command) {
+          case CommandStart commandStart -> processStartCommand(commandStart);
+          case CommandDisconnect commandDisconnect -> processDisconnectCommand(commandDisconnect);
+          case CommandDebug commandDebug -> processDebugCommand(commandDebug);
+          default -> throw new UnsupportedOperationException("Unknown command: " + command);
+        }
+      }
+    }
+  }
+
+  private void processStartCommand(CommandStart command) {
+    // TODO when job requests are implemented
+    System.out.println(command);
+  }
+
+  private void processDisconnectCommand(CommandDisconnect command) {
+    // TODO when disconnection is implemented
+    System.out.println(command);
+  }
+
+  private void processDebugCommand(CommandDebug command) {
+    switch (command.debugCode()) {
+      case 1 -> {
+        System.out.println("Total potential: " + potential);
+        System.out.println("Neighboring potentials:");
+        connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
+      }
+      // Code other debug codes here!
+      default -> System.out.println("Unknown debug code: " + command.debugCode());
+    }
+  }
+
+  /**
    * Launches the controller
    * @throws IOException in case of TCP layer errors
    */
@@ -69,15 +123,13 @@ public class Controller {
       parentSocketChannel.connect(parentAddress);
     }
 
-    // TODO: start console thread
+    var console = new Console(this);
+    Thread.ofPlatform().daemon().start(console::consoleRun);
 
     while(!Thread.interrupted()) {
       try {
         selector.select(this::treatKey);
-
-        // DEBUG
-        System.out.println("Total potential: " + potential);
-        connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " potential: " + ctx.potential()));
+        processCommands();
       } catch (UncheckedIOException tunneled) {
         throw tunneled.getCause();
       }
@@ -117,6 +169,8 @@ public class Controller {
       logger.warning("Failed to accept socket channel");
       return;
     }
+
+    // Configure new key
     logger.info("Client " + sc.getRemoteAddress() + " connected.");
     sc.configureBlocking(false);
     var clientKey = sc.register(selector, SelectionKey.OP_READ);
@@ -136,17 +190,15 @@ public class Controller {
   private void silentlyClose(SelectionKey key) {
     try {
       key.channel().close();
-    } catch (IOException e) {
-      // ignore exception
+    } catch (IOException ignored) {
     }
   }
 
   // Returns a stream of the context of each connected node
   private Stream<ConnectionContext> connectedNodeStream() {
     return selector.keys().stream().map(SelectionKey::attachment)
-        .flatMap(a -> {
-          if (a instanceof ConnectionContext) { return Stream.of((ConnectionContext) a); }
-          return Stream.empty();
+        .mapMulti((a, consumer) -> {
+          if (a instanceof ConnectionContext) { consumer.accept((ConnectionContext) a); }
         });
   }
 
