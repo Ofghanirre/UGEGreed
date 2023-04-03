@@ -1,5 +1,7 @@
 package fr.uge.ugegreed;
 
+
+import fr.uge.ugegreed.jobs.Jobs;
 import fr.uge.ugegreed.commands.Command;
 import fr.uge.ugegreed.commands.CommandDebug;
 import fr.uge.ugegreed.commands.CommandDisconnect;
@@ -30,6 +32,7 @@ public class Controller {
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
   private final SocketChannel parentSocketChannel;
+  private final Jobs jobs = new Jobs();
   private int potential = 1;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
 
@@ -125,7 +128,9 @@ public class Controller {
 
     while(!Thread.interrupted()) {
       try {
-        selector.select(this::treatKey);
+        selector.select(this::treatKey, 100);
+        jobs.processContextQueue();
+        jobs.processTaskExecutorQueue();
         processCommands();
       } catch (UncheckedIOException tunneled) {
         throw tunneled.getCause();
