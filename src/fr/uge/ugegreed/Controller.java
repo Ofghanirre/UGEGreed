@@ -1,6 +1,9 @@
 package fr.uge.ugegreed;
 
 import fr.uge.ugegreed.commands.Command;
+import fr.uge.ugegreed.commands.CommandDebug;
+import fr.uge.ugegreed.commands.CommandDisconnect;
+import fr.uge.ugegreed.commands.CommandStart;
 import fr.uge.ugegreed.packets.InitPacket;
 import fr.uge.ugegreed.packets.UpdtPacket;
 
@@ -72,11 +75,32 @@ public class Controller {
       synchronized (commandQueue) {
         var command = commandQueue.poll();
         if (command == null) { return; }
-        logger.info("Command received: " + command);
-//        switch (command) {
-//          default -> throw new UnsupportedOperationException("Unknown command: " + command);
-//        }
+        switch (command) {
+          case CommandStart commandStart -> processStartCommand(commandStart);
+          case CommandDisconnect commandDisconnect -> processDisconnectCommand(commandDisconnect);
+          case CommandDebug commandDebug -> processDebugCommand(commandDebug);
+          default -> throw new UnsupportedOperationException("Unknown command: " + command);
+        }
       }
+    }
+  }
+
+  private void processStartCommand(CommandStart command) {
+    // TODO
+  }
+
+  private void processDisconnectCommand(CommandDisconnect command) {
+    // TODO
+  }
+
+  private void processDebugCommand(CommandDebug command) {
+    switch (command.debugCode()) {
+      case 1 -> {
+        System.out.println("Total potential: " + potential);
+        System.out.println("Neighboring potentials:");
+        connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
+      }
+      default -> System.out.println("Unknown debug code: " + command.debugCode());
     }
   }
 
@@ -103,10 +127,6 @@ public class Controller {
       try {
         selector.select(this::treatKey);
         processCommands();
-
-        // DEBUG
-        System.out.println("Total potential: " + potential);
-        connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " potential: " + ctx.potential()));
       } catch (UncheckedIOException tunneled) {
         throw tunneled.getCause();
       }
