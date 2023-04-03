@@ -54,9 +54,6 @@ public class Controller {
     serverSocketChannel.bind(new InetSocketAddress(listenPort));
     this.parentSocketChannel = SocketChannel.open();
   }
-  public Controller(int listenPort, Path resultPath) throws IOException {
-    this(listenPort, resultPath, null);
-  }
 
   /**
    * Sends a console command to the controller
