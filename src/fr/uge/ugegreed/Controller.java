@@ -8,6 +8,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -125,5 +126,15 @@ public class Controller {
     } catch (IOException e) {
       // ignore exception
     }
+  }
+
+  // Applies a consumer to the ConnnectionContext attached to every currently connected node
+  private void forEachConnectedNode(Consumer<ConnectionContext> action) {
+    selector.keys().forEach(key -> {
+      var attachment = key.attachment();
+      if (attachment instanceof ConnectionContext) {
+        action.accept((ConnectionContext) attachment);
+      }
+    });
   }
 }
