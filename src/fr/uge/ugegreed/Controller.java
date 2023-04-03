@@ -86,11 +86,13 @@ public class Controller {
   }
 
   private void processStartCommand(CommandStart command) {
-    // TODO
+    // TODO when job requests are implemented
+    System.out.println(command);
   }
 
   private void processDisconnectCommand(CommandDisconnect command) {
-    // TODO
+    // TODO when disconnection is implemented
+    System.out.println(command);
   }
 
   private void processDebugCommand(CommandDebug command) {
@@ -100,6 +102,7 @@ public class Controller {
         System.out.println("Neighboring potentials:");
         connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
       }
+      // Code other debug codes here!
       default -> System.out.println("Unknown debug code: " + command.debugCode());
     }
   }
@@ -166,6 +169,8 @@ public class Controller {
       logger.warning("Failed to accept socket channel");
       return;
     }
+
+    // Configure new key
     logger.info("Client " + sc.getRemoteAddress() + " connected.");
     sc.configureBlocking(false);
     var clientKey = sc.register(selector, SelectionKey.OP_READ);
@@ -185,8 +190,7 @@ public class Controller {
   private void silentlyClose(SelectionKey key) {
     try {
       key.channel().close();
-    } catch (IOException e) {
-      // ignore exception
+    } catch (IOException ignored) {
     }
   }
 
