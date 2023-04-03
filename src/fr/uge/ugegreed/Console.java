@@ -2,6 +2,7 @@ package fr.uge.ugegreed;
 
 import fr.uge.ugegreed.commands.CommandDebug;
 import fr.uge.ugegreed.commands.CommandDisconnect;
+import fr.uge.ugegreed.commands.CommandStart;
 
 import java.util.Objects;
 import java.util.Scanner;
@@ -31,7 +32,7 @@ public class Console {
       var scan = new Scanner(System.in);
       while (scan.hasNextLine()) {
         var line = scan.nextLine();
-        var splitLine = line.split(" ");
+        var splitLine = line.split(" +");
         if (splitLine.length == 0) continue;
         var result = switch (splitLine[0]) {
           case "START" -> sendStartCommand(splitLine);
@@ -51,8 +52,18 @@ public class Console {
   }
 
   private boolean sendStartCommand(String[] splitLine) throws InterruptedException {
-    // TODO
-    return false;
+    if (splitLine.length != 6) {
+      return false;
+    }
+    try {
+      var start = Integer.parseInt(splitLine[3]);
+      var end = Integer.parseInt(splitLine[4]);
+      if (end < start) { return false; }
+      controller.sendCommand(new CommandStart(splitLine[1], splitLine[2], start, end, splitLine[5]));
+      return true;
+    } catch (NumberFormatException e) {
+      return false;
+    }
   }
 
   private boolean sendDisconnectCommand() throws InterruptedException {
