@@ -121,6 +121,9 @@ public class Controller {
       var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
       key.attach(new ConnectionContext(this, key));
       parentSocketChannel.connect(parentAddress);
+      logger.info("Connecting to parent...");
+    } else {
+      logger.info("In ROOT mode.");
     }
 
     var console = new Console(this);

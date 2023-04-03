@@ -182,6 +182,7 @@ public class ConnectionContext {
     if (!sc.finishConnect()) return;
     key.interestOps(SelectionKey.OP_READ);
     remoteHost = (InetSocketAddress) sc.getRemoteAddress();
+    logger.info("Connected to " + remoteHost);
   }
 
   private void silentlyClose() {
