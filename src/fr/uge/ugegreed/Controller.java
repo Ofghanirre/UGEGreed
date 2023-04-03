@@ -1,5 +1,6 @@
 package fr.uge.ugegreed;
 
+import fr.uge.ugegreed.jobs.Jobs;
 import fr.uge.ugegreed.packets.InitPacket;
 import fr.uge.ugegreed.packets.UpdtPacket;
 
@@ -25,7 +26,7 @@ public class Controller {
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
   private final SocketChannel parentSocketChannel;
-
+  private final Jobs jobs = new Jobs();
   private int potential = 1;
 
   /**
@@ -71,13 +72,14 @@ public class Controller {
 
     // TODO: start console thread
 
+    // TODO remove debug job
+    jobs.addJob(number -> "" + number + 1, 1, 0, 4048);
+
     while(!Thread.interrupted()) {
       try {
-        selector.select(this::treatKey);
-
-        // DEBUG
-        System.out.println("Total potential: " + potential);
-        connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " potential: " + ctx.potential()));
+        selector.select(this::treatKey, 100);
+        jobs.processContextQueue();
+        jobs.processTaskExecutorQueue();
       } catch (UncheckedIOException tunneled) {
         throw tunneled.getCause();
       }
