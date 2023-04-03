@@ -24,13 +24,6 @@ public class Jobs {
         contextQueue.add(packet);
     }
 
-    // TODO REMOVE LATER
-    public void addJob(Checker checker, long job_id, long range_start, long range_end) throws IOException {
-        jobs.put(job_id,
-                new UpstreamJob(new ReqPacket(job_id, "test/debug", "main", range_start, range_end),
-                Path.of("response/test")));
-        taskExecutor.addJob(checker, job_id, range_start, range_end);
-    }
 
     private void sendPacketToJob(Packet packet, long job_id) {
         var job = jobs.get(job_id);

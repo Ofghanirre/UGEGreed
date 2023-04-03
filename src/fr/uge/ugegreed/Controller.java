@@ -70,11 +70,6 @@ public class Controller {
       parentSocketChannel.connect(parentAddress);
     }
 
-    // TODO: start console thread
-
-    // TODO remove debug job
-    jobs.addJob(number -> "" + number + 1, 1, 0, 4048);
-
     while(!Thread.interrupted()) {
       try {
         selector.select(this::treatKey, 100);
