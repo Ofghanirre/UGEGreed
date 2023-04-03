@@ -2,6 +2,7 @@ package fr.uge.ugegreed;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.logging.Logger;
 
@@ -23,7 +24,13 @@ public class Main {
     logger.info("Application start.");
 
     var listenPort = Integer.parseInt(args[0]);
+    if (listenPort < 0 || listenPort > 65535) {
+      logger.warning("Port given <" + listenPort + "> is invalid, exiting...");
+      throw new IllegalArgumentException("Port given is invalid");
+    }
+
     var resultPath = Path.of(args[1]);
+    Files.createDirectories(resultPath);
 
     if (args.length == 4) {
       var parentAddress = new InetSocketAddress(args[2], Integer.parseInt(args[3]));
