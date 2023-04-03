@@ -1,6 +1,7 @@
 package fr.uge.ugegreed;
 
 import fr.uge.ugegreed.commands.CommandDebug;
+import fr.uge.ugegreed.commands.CommandDebugCode;
 import fr.uge.ugegreed.commands.CommandDisconnect;
 import fr.uge.ugegreed.commands.CommandStart;
 
@@ -78,7 +79,7 @@ public class Console {
     try {
       var debugCode = Integer.parseInt(splitLine[1]);
       if (debugCode < 0) { return false; }
-      controller.sendCommand(new CommandDebug(debugCode));
+      controller.sendCommand(new CommandDebug(CommandDebugCode.fromInt(debugCode)));
       return true;
     } catch (NumberFormatException e) {
       return false;
