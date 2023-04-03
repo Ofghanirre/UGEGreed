@@ -118,8 +118,8 @@ public class Controller {
             new CommandStart("dummy", "dummy", 1, 2, "dummy"),
             new CommandDisconnect()
     );
-    System.out.println("Commands (" + commands.size() + ")\n");
-    System.out.println(commands.stream().map(Command::getName).collect(Collectors.joining(" - ")));
+    System.out.println("Commands (" + commands.size() + ")");
+    System.out.println(commands.stream().map(Command::getName).collect(Collectors.joining(" - ")) + "\n");
     commands.forEach(c -> System.out.println(c.getHelp() + "\n"));
   }
 
