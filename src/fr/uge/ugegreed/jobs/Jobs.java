@@ -61,6 +61,10 @@ public class Jobs {
     public boolean createJob(String jarURL, String mainClass, long start, long end, String fileName) {
         checkJobParameters(jarURL, mainClass, start, end, fileName);
         var jobID = rng.nextLong(Long.MAX_VALUE);
+        while (jobs.containsKey(jobID)) {
+            jobID = rng.nextLong(Long.MAX_VALUE);
+        }
+
         Path fullPath;
         try {
             fullPath = resultPath.resolve(fileName);
