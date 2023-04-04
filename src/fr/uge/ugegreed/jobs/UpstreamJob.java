@@ -1,35 +1,85 @@
 package fr.uge.ugegreed.jobs;
 
+import fr.uge.ugegreed.CheckerRetriever;
+import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.AnsPacket;
 import fr.uge.ugegreed.packets.Packet;
-import fr.uge.ugegreed.packets.ReqPacket;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
+import java.util.logging.Logger;
 
 public final class UpstreamJob implements Job {
-    private final ReqPacket request;
-    private final BufferedWriter outputFile;
+    private final static Logger logger = Logger.getLogger(UpstreamJob.class.getName());
+    private final TaskExecutor executor;
+    private final long jobID;
+    private final String jarURL;
+    private final String className;
+    private final long start;
+    private final long end;
+    private final Path outputPath;
+    private BufferedWriter output;
+    private boolean jobRunning = false;
+    private long counter;
 
-    public UpstreamJob(ReqPacket request, Path outputFilePath) throws IOException {
-        this.request = request;
-        this.outputFile = Files.newBufferedWriter(outputFilePath);
+    public UpstreamJob(long jobID, String jarURL, String className, long start, long end, Path outputFilePath, TaskExecutor executor) {
+        if (jobID < 0) {
+            throw new IllegalArgumentException("jobID must be positive");
+        }
+        this.jobID = jobID;
+        this.jarURL = Objects.requireNonNull(jarURL);
+        this.className = Objects.requireNonNull(className);
+        if (end < start) {
+            throw new IllegalArgumentException("end must be superior to start");
+        }
+        this.start = start;
+        this.end = end;
+        this.outputPath = Objects.requireNonNull(outputFilePath);
+        this.executor = Objects.requireNonNull(executor);
+    }
+
+    /**
+     * Prepares and starts a job
+     */
+    public boolean startJob() throws IOException {
+        this.output = Files.newBufferedWriter(outputPath);
+
+        // TODO: replace this!!!!
+        var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
+        if (checker.isEmpty()) { return false; }
+
+        // Add distribution of requests
+
+        executor.addJob(checker.get(), jobID, start, end);
+        jobRunning = true;
+        logger.info("Job " + jobID + " started.");
+        return true;
     }
 
     public void end() throws IOException {
-        this.outputFile.close();
+        this.output.close();
     }
 
     @Override
-    public void handlePacket(Packet packet) {
+    public void handlePacket(Packet packet) throws IOException {
+        if (!jobRunning) { return; }
         switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
             default -> throw new AssertionError();
         }
     }
 
-    private void handleAnswer(AnsPacket ansPacket) {
+    private void handleAnswer(AnsPacket ansPacket) throws IOException {
+        output.write(ansPacket.result());
+        output.newLine();
+        counter++;
+        if (counter >= end - start) {
+            jobRunning = false;
+            logger.info("Job " + jobID + " finished.");
+            end();
+        }
     }
 }
