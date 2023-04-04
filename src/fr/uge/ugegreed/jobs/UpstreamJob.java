@@ -25,6 +25,16 @@ public final class UpstreamJob implements Job {
     private boolean jobRunning = false;
     private long counter;
 
+    /**
+     * Creates a new upstream job
+     * @param jobID id of the job
+     * @param jarURL URL to the jar containing the Checker
+     * @param className name of the checker
+     * @param start start of the range (included)
+     * @param end end of the range (excluded)
+     * @param outputFilePath path to the output file
+     * @param executor taskExecutor this job must use
+     */
     public UpstreamJob(long jobID, String jarURL, String className, long start, long end, Path outputFilePath, TaskExecutor executor) {
         if (jobID < 0) {
             throw new IllegalArgumentException("jobID must be positive");
@@ -51,7 +61,7 @@ public final class UpstreamJob implements Job {
         var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
         if (checker.isEmpty()) { return false; }
 
-        // Add distribution of requests
+        // TODO: Add distribution of requests
 
         executor.addJob(checker.get(), jobID, start, end);
         jobRunning = true;
