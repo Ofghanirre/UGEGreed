@@ -200,8 +200,11 @@ public class Controller {
     }
   }
 
-  // Returns a stream of the context of each connected node
-  private Stream<ConnectionContext> connectedNodeStream() {
+  /**
+   * Returns a stream of all connected nodes
+   * @return stream of all connected nodes
+   */
+  public Stream<ConnectionContext> connectedNodeStream() {
     return selector.keys().stream().map(SelectionKey::attachment)
         .mapMulti((a, consumer) -> {
           if (a instanceof ConnectionContext) { consumer.accept((ConnectionContext) a); }
