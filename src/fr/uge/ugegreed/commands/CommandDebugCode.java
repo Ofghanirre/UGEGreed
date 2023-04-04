@@ -1,5 +1,7 @@
 package fr.uge.ugegreed.commands;
 
+import java.util.Optional;
+
 public enum CommandDebugCode {
     POTENTIAL(1);
 
@@ -12,12 +14,12 @@ public enum CommandDebugCode {
     int getIntValue() {
         return intValue;
     }
-    public static CommandDebugCode fromInt(int intValue) {
+    public static Optional<CommandDebugCode> fromInt(int intValue) {
         for (var value : CommandDebugCode.values()) {
             if (value.getIntValue() == intValue) {
-                return value;
+                return Optional.of(value);
             }
         }
-        throw new IllegalArgumentException("Invalid int value: " + intValue);
+        return Optional.empty();
     }
 }

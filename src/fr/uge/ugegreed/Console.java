@@ -78,7 +78,9 @@ public class Console {
     try {
       var debugCode = Integer.parseInt(splitLine[1]);
       if (debugCode < 0) { return false; }
-      controller.sendCommand(new CommandDebug(CommandDebugCode.fromInt(debugCode)));
+      var optionalDebugCode = CommandDebugCode.fromInt(debugCode);
+      if (optionalDebugCode.isEmpty()) return false;
+      controller.sendCommand(new CommandDebug(optionalDebugCode.get()));
       return true;
     } catch (NumberFormatException e) {
       return false;
