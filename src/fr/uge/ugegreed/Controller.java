@@ -28,11 +28,10 @@ public class Controller {
   private static final Logger logger = Logger.getLogger(Controller.class.getName());
   private final Selector selector;
   private final InetSocketAddress parentAddress;
-  private final Path resultPath;
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
   private final SocketChannel parentSocketChannel;
-  private final Jobs jobs = new Jobs();
+  private final Jobs jobs;
   private int potential = 1;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
 
@@ -51,7 +50,7 @@ public class Controller {
 
     this.listenPort = listenPort;
     this.selector = Selector.open();
-    this.resultPath = resultPath;
+    jobs = new Jobs(resultPath);
     this.parentAddress = parentAddress;
     this.serverSocketChannel = ServerSocketChannel.open();
     serverSocketChannel.bind(new InetSocketAddress(listenPort));
@@ -86,8 +85,10 @@ public class Controller {
   }
 
   private void processStartCommand(CommandStart command) {
-    // TODO when job requests are implemented
-    System.out.println(command);
+    var result = jobs.createJob(command.urlJAR(), command.className(), command.rangeStart(), command.rangeEnd(), command.filename());
+    if (!result) {
+      logger.info("Job could not be started");
+    }
   }
 
   private void processDisconnectCommand(CommandDisconnect command) {
@@ -199,8 +200,11 @@ public class Controller {
     }
   }
 
-  // Returns a stream of the context of each connected node
-  private Stream<ConnectionContext> connectedNodeStream() {
+  /**
+   * Returns a stream of all connected nodes
+   * @return stream of all connected nodes
+   */
+  public Stream<ConnectionContext> connectedNodeStream() {
     return selector.keys().stream().map(SelectionKey::attachment)
         .mapMulti((a, consumer) -> {
           if (a instanceof ConnectionContext) { consumer.accept((ConnectionContext) a); }
