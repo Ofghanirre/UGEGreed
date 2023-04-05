@@ -1,5 +1,6 @@
 package fr.uge.ugegreed.jobs;
 
+import fr.uge.ugegreed.ConnectionContext;
 import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
 
@@ -18,12 +19,13 @@ import java.util.random.RandomGenerator;
  * Manages all aspects of the application relates to jobs
  */
 public class Jobs {
+
     private static final Logger logger = Logger.getLogger(Jobs.class.getName());
     private static final int TASK_EXECUTOR_MAX_READING_AMOUNT = 128;
 
     private final RandomGenerator rng = RandomGenerator.of("L64X128MixRandom");
     private final Map<Long, Job> jobs = new HashMap<>();
-    private final ArrayDeque<Packet> contextQueue = new ArrayDeque<>();
+    private final ArrayDeque<ContextPacket> contextQueue = new ArrayDeque<>();
     private final ArrayBlockingQueue<AnsPacket> taskExecutorQueue = new ArrayBlockingQueue<>(TASK_EXECUTOR_MAX_READING_AMOUNT);
     private final TaskExecutor taskExecutor = new TaskExecutor(this.taskExecutorQueue);
     private final Path resultPath;
@@ -49,6 +51,7 @@ public class Jobs {
         }
     }
 
+
     /**
      * Creates a new job
      * @param jarURL url to the JAR to use
@@ -60,10 +63,7 @@ public class Jobs {
      */
     public boolean createJob(String jarURL, String mainClass, long start, long end, String fileName) {
         checkJobParameters(jarURL, mainClass, start, end, fileName);
-        var jobID = rng.nextLong(Long.MAX_VALUE);
-        while (jobs.containsKey(jobID)) {
-            jobID = rng.nextLong(Long.MAX_VALUE);
-        }
+        long jobID = generateJobID();
 
         Path fullPath;
         try {
@@ -83,6 +83,14 @@ public class Jobs {
         return true;
     }
 
+    private long generateJobID() {
+        var jobID = rng.nextLong(Long.MAX_VALUE);
+        while (jobs.containsKey(jobID)) {
+            jobID = rng.nextLong(Long.MAX_VALUE);
+        }
+        return jobID;
+    }
+
     private void sendPacketToJob(Packet packet, long job_id) throws IOException {
         var job = jobs.get(job_id);
         //logger.info(packet.toString());
@@ -98,14 +106,29 @@ public class Jobs {
      */
     public void processContextQueue() throws IOException {
         while (!contextQueue.isEmpty()) {
-            Packet packet = contextQueue.remove();
-            switch (packet) {
+            ContextPacket contextPacket = contextQueue.remove();
+            switch (contextPacket.packet()) {
                 case AnsPacket ansPacket -> sendPacketToJob(ansPacket, ansPacket.job_id());
                 case AccPacket accPacket -> sendPacketToJob(accPacket, accPacket.job_id());
                 case RefPacket refPacket -> sendPacketToJob(refPacket, refPacket.job_id());
+                case ReqPacket reqPacket -> processReqPacket(reqPacket, contextPacket.context());
                 default -> throw new AssertionError("unhandled Packet tested");
             }
         }
+    }
+
+    private void processReqPacket(ReqPacket reqPacket, ConnectionContext context) {
+        var job = new DownstreamJob(context, reqPacket, taskExecutor);
+        try {
+            if (!job.startJob()) {
+                context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
+                return;
+            }
+        } catch (IOException e) {
+            context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
+            return;
+        }
+        jobs.put(generateJobID(), job);
     }
 
     /**
