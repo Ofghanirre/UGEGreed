@@ -59,6 +59,7 @@ public final class DownstreamJob implements Job {
 
     @Override
     public void handlePacket(Packet packet) {
+        if (!jobRunning) { return; }
         switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
             default -> throw new AssertionError();
@@ -67,5 +68,10 @@ public final class DownstreamJob implements Job {
 
     private void handleAnswer(AnsPacket ansPacket) {
         upstreamHost.queuePacket(ansPacket);
+        counter++;
+        if (counter >= end - start) {
+            jobRunning = false;
+            logger.info("Job " + jobID + " finished.");
+        }
     }
 }
