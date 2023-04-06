@@ -4,6 +4,7 @@ package fr.uge.ugegreed;
 import fr.uge.ugegreed.commands.*;
 import fr.uge.ugegreed.jobs.Jobs;
 import fr.uge.ugegreed.packets.InitPacket;
+import fr.uge.ugegreed.packets.Packet;
 import fr.uge.ugegreed.packets.UpdtPacket;
 
 import java.io.IOException;
@@ -254,5 +255,14 @@ public class Controller {
         ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
       }
     });
+  }
+
+  /**
+   * Transmits a packet from a context to the job manager
+   * @param packet packet to transmit
+   * @param context context it came from
+   */
+  public void transmitPacketToJobs(Packet packet, ConnectionContext context) {
+    jobs.queueContextPacket(packet, context);
   }
 }

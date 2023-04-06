@@ -3,8 +3,7 @@ package fr.uge.ugegreed.jobs;
 import fr.uge.ugegreed.CheckerRetriever;
 import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
-import fr.uge.ugegreed.packets.AnsPacket;
-import fr.uge.ugegreed.packets.Packet;
+import fr.uge.ugegreed.packets.*;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -55,6 +54,7 @@ public final class UpstreamJob implements Job {
         this.controller = Objects.requireNonNull(controller);
     }
 
+
     /**
      * Prepares and starts a job
      */
@@ -68,18 +68,19 @@ public final class UpstreamJob implements Job {
         // TODO: Add distribution of requests
         var potential = controller.potential();
         var sizeOfSlices = Long.max((end - start) / potential, 1);
-        executor.addJob(checker.get(), jobID, 0, sizeOfSlices);
 
-        var cursor = sizeOfSlices;
+        var cursor = start;
+        executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices);
+
         var hosts = controller.connectedNodeStream().toList();
         for (var context : hosts) {
+            cursor += sizeOfSlices;
             if (cursor >= end) { break; }
-
+            context.queuePacket(new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices, end)));
         }
 
-        executor.addJob(checker.get(), jobID, start, end);
         jobRunning = true;
-        logger.info("Job " + jobID + " started.");
+        logger.info("Job " + jobID + " distributed and started.");
         return true;
     }
 
@@ -92,8 +93,24 @@ public final class UpstreamJob implements Job {
         if (!jobRunning) { return; }
         switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
+            case AccPacket accPacket -> handleAccept(accPacket);
+            case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
         }
+    }
+
+    private void handleRefuse(RefPacket refPacket) {
+        // Takes job for himself
+
+        // TODO: replace this as well...
+        var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
+        if (checker.isEmpty()) { throw new AssertionError(); }
+
+        executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
+    }
+
+    private void handleAccept(AccPacket accPacket) {
+        // Do nothing
     }
 
     private void handleAnswer(AnsPacket ansPacket) throws IOException {

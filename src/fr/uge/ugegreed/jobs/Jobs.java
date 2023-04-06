@@ -105,6 +105,15 @@ public class Jobs {
     }
 
     /**
+     * Queues a packet that came from another node
+     * @param packet packet to queue
+     * @param context context of the node it came from
+     */
+    public void queueContextPacket(Packet packet, ConnectionContext context) {
+        contextQueue.add(new ContextPacket(packet, context));
+    }
+
+    /**
      * Processes the queue for packets that came from other nodes
      */
     public void processContextQueue() throws IOException {
