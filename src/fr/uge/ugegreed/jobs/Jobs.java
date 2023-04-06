@@ -136,7 +136,7 @@ public class Jobs {
             context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
             return;
         }
-        jobs.put(generateJobID(), job);
+        jobs.put(reqPacket.job_id(), job);
     }
 
     /**
