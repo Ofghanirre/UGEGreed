@@ -1,9 +1,8 @@
 package fr.uge.ugegreed;
 
-import fr.uge.ugegreed.commands.CommandDebug;
-import fr.uge.ugegreed.commands.CommandDisconnect;
-import fr.uge.ugegreed.commands.CommandStart;
+import fr.uge.ugegreed.commands.*;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.logging.Logger;
@@ -34,10 +33,11 @@ public class Console {
         var line = scan.nextLine();
         var splitLine = line.split(" +");
         if (splitLine.length == 0) continue;
-        var result = switch (splitLine[0]) {
+        var result = switch (splitLine[0].toUpperCase(Locale.ROOT)) {
           case "START" -> sendStartCommand(splitLine);
           case "DISCONNECT" -> sendDisconnectCommand();
           case "DEBUG" -> sendDebugCommand(splitLine);
+          case "HELP" -> sendHelpCommand();
           default -> false;
         };
         if (!result) {
@@ -78,10 +78,17 @@ public class Console {
     try {
       var debugCode = Integer.parseInt(splitLine[1]);
       if (debugCode < 0) { return false; }
-      controller.sendCommand(new CommandDebug(debugCode));
+      var optionalDebugCode = CommandDebugCode.fromInt(debugCode);
+      if (optionalDebugCode.isEmpty()) return false;
+      controller.sendCommand(new CommandDebug(optionalDebugCode.get()));
       return true;
     } catch (NumberFormatException e) {
       return false;
     }
+  }
+
+  private boolean sendHelpCommand() throws InterruptedException {
+    controller.sendCommand(new CommandHelp());
+    return true;
   }
 }

@@ -28,4 +28,21 @@ public record CommandStart(String urlJAR, String className, long rangeStart, lon
       throw new IllegalArgumentException("the filename cannot be empty");
     }
   }
+
+  @Override
+  public CommandHelpData getHelp() {
+    return new CommandHelpData("START",
+            new CommandHelpData.Argument[]{
+                    new CommandHelpData.Argument("url-jar", "jar url"),
+                    new CommandHelpData.Argument("fully-qualified-name", "the fully qualified name of the class contained in the jar implementing the interface fr.uge.ugegreed.Checker"),
+                    new CommandHelpData.Argument("start-range", "the first value to test"),
+                    new CommandHelpData.Argument("end-range", "the last value to test"),
+                    new CommandHelpData.Argument("filename ", "the name of the output file to store result in"),
+            }, "Start the checking of a given conjecture");
+  }
+
+  @Override
+  public String getName() {
+    return "START";
+  }
 }
