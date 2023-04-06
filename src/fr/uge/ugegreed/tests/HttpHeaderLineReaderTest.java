@@ -28,6 +28,17 @@ public class HttpHeaderLineReaderTest {
     }
 
     @Test
+    public void simpleEmptyLineWithCRLF() {
+        var string = "\r\n";
+        var bb = cs.encode(string).compact();
+        HttpHeaderLineReader sr = new HttpHeaderLineReader();
+        assertEquals(Reader.ProcessStatus.DONE, sr.process(bb));
+        assertEquals(extractCRLF(string), sr.get());
+        assertEquals(0, bb.position());
+        assertEquals(bb.capacity(), bb.limit());
+    }
+
+    @Test
     public void simpleNoCRLFAtFirstThenCRLF() {
         var string1 = "Test Header with no simple CRLF at the end!";
         var bb = cs.encode(string1).compact();
