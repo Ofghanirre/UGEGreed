@@ -1,6 +1,7 @@
 package fr.uge.ugegreed.jobs;
 
 import fr.uge.ugegreed.ConnectionContext;
+import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
 
@@ -23,6 +24,7 @@ public class Jobs {
     private static final Logger logger = Logger.getLogger(Jobs.class.getName());
     private static final int TASK_EXECUTOR_MAX_READING_AMOUNT = 128;
 
+    private final Controller controller;
     private final RandomGenerator rng = RandomGenerator.of("L64X128MixRandom");
     private final Map<Long, Job> jobs = new HashMap<>();
     private final ArrayDeque<ContextPacket> contextQueue = new ArrayDeque<>();
@@ -35,8 +37,9 @@ public class Jobs {
      * Creates a jobs manager
      * @param resultPath path to the directory where to store results, it must already exist.
      */
-    public Jobs(Path resultPath) {
+    public Jobs(Path resultPath, Controller controller) {
         this.resultPath = Objects.requireNonNull(resultPath);
+        this.controller = Objects.requireNonNull(controller);
     }
 
     private void checkJobParameters(String jarURL, String mainClass, long start, long end, String fileName) {
@@ -71,7 +74,7 @@ public class Jobs {
         } catch (InvalidPathException e) {
             return false;
         }
-        var job = new UpstreamJob(jobID, jarURL, mainClass, start, end, fullPath, taskExecutor);
+        var job = new UpstreamJob(jobID, jarURL, mainClass, start, end, fullPath, taskExecutor, controller);
 
         try {
             if (!job.startJob()) { return false; }

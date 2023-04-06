@@ -52,7 +52,7 @@ public class Controller {
 
     this.listenPort = listenPort;
     this.selector = Selector.open();
-    jobs = new Jobs(resultPath);
+    jobs = new Jobs(resultPath, this);
     this.parentAddress = parentAddress;
     this.serverSocketChannel = ServerSocketChannel.open();
     serverSocketChannel.bind(new InetSocketAddress(listenPort));
@@ -225,6 +225,14 @@ public class Controller {
         .mapMulti((a, consumer) -> {
           if (a instanceof ConnectionContext) { consumer.accept((ConnectionContext) a); }
         });
+  }
+
+  /**
+   * Returns total potential of the network
+   * @return total potential of the network
+   */
+  public int potential() {
+    return potential;
   }
 
   /**

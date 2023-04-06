@@ -1,6 +1,7 @@
 package fr.uge.ugegreed.jobs;
 
 import fr.uge.ugegreed.CheckerRetriever;
+import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.AnsPacket;
 import fr.uge.ugegreed.packets.Packet;
@@ -15,6 +16,7 @@ import java.util.logging.Logger;
 public final class UpstreamJob implements Job {
     private final static Logger logger = Logger.getLogger(UpstreamJob.class.getName());
     private final TaskExecutor executor;
+    private final Controller controller;
     private final long jobID;
     private final String jarURL;
     private final String className;
@@ -35,7 +37,8 @@ public final class UpstreamJob implements Job {
      * @param outputFilePath path to the output file
      * @param executor taskExecutor this job must use
      */
-    public UpstreamJob(long jobID, String jarURL, String className, long start, long end, Path outputFilePath, TaskExecutor executor) {
+    public UpstreamJob(long jobID, String jarURL, String className, long start, long end, Path outputFilePath,
+                       TaskExecutor executor, Controller controller) {
         if (jobID < 0) {
             throw new IllegalArgumentException("jobID must be positive");
         }
@@ -49,6 +52,7 @@ public final class UpstreamJob implements Job {
         this.end = end;
         this.outputPath = Objects.requireNonNull(outputFilePath);
         this.executor = Objects.requireNonNull(executor);
+        this.controller = Objects.requireNonNull(controller);
     }
 
     /**
@@ -62,6 +66,16 @@ public final class UpstreamJob implements Job {
         if (checker.isEmpty()) { return false; }
 
         // TODO: Add distribution of requests
+        var potential = controller.potential();
+        var sizeOfSlices = Long.max((end - start) / potential, 1);
+        executor.addJob(checker.get(), jobID, 0, sizeOfSlices);
+
+        var cursor = sizeOfSlices;
+        var hosts = controller.connectedNodeStream().toList();
+        for (var context : hosts) {
+            if (cursor >= end) { break; }
+
+        }
 
         executor.addJob(checker.get(), jobID, start, end);
         jobRunning = true;
