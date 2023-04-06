@@ -40,6 +40,7 @@ public class HttpHeaderLineReader implements Reader<String> {
                 else { resultLine.append(c); }
             }
         }
+        buffer.compact();
 
         if (!gotCRLF) {
             return ProcessStatus.REFILL;
@@ -60,5 +61,6 @@ public class HttpHeaderLineReader implements Reader<String> {
     public void reset() {
         state = State.WAITING;
         resultLine.setLength(0);
+        gotCRLF = false;
     }
 }
