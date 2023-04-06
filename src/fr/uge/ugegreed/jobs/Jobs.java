@@ -94,14 +94,14 @@ public class Jobs {
         return jobID;
     }
 
-    private void sendPacketToJob(Packet packet, long job_id) throws IOException {
+    private boolean sendPacketToJob(Packet packet, long job_id) throws IOException {
         var job = jobs.get(job_id);
         //logger.info(packet.toString());
         if (job == null) {
             logger.warning("Invalid Job_id given " + job_id);
-            return;
+            return true;
         }
-        job.handlePacket(packet);
+        return job.handlePacket(packet);
     }
 
     /**
@@ -117,27 +117,32 @@ public class Jobs {
      * Processes the queue for packets that came from other nodes
      */
     public void processContextQueue() throws IOException {
-        while (!contextQueue.isEmpty()) {
+        var numberOfPackets = contextQueue.size();
+        for (var i = 0 ; i < numberOfPackets ; i++) {
             ContextPacket contextPacket = contextQueue.remove();
-            switch (contextPacket.packet()) {
+            var used = switch (contextPacket.packet()) {
                 case AnsPacket ansPacket -> sendPacketToJob(ansPacket, ansPacket.job_id());
                 case AccPacket accPacket -> sendPacketToJob(accPacket, accPacket.job_id());
                 case RefPacket refPacket -> sendPacketToJob(refPacket, refPacket.job_id());
                 case ReqPacket reqPacket -> processReqPacket(reqPacket, contextPacket.context());
-                default -> throw new AssertionError("unhandled Packet tested");
+                default -> throw new AssertionError("unhandled packet tested");
+            };
+            if (!used) {
+                contextQueue.add(contextPacket);
             }
         }
     }
 
-    private void processReqPacket(ReqPacket reqPacket, ConnectionContext context) {
+    private boolean processReqPacket(ReqPacket reqPacket, ConnectionContext context) {
         var job = new DownstreamJob(context, reqPacket, taskExecutor, controller);
         if (!job.startJob()) {
             logger.warning("Could not start job based on " + reqPacket);
             context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
-            return;
+            return true;
         }
 
         jobs.put(reqPacket.job_id(), job);
+        return true;
     }
 
     /**

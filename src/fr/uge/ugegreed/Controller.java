@@ -105,7 +105,7 @@ public class Controller {
       case POTENTIAL -> {
         System.out.println("Total potential: " + potential);
         System.out.println("Neighboring potentials:");
-        connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
+        availableNodesStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
       }
       // Code other debug codes here!
       default -> System.out.println("Unknown debug code: " + command.debugCode());
@@ -203,7 +203,7 @@ public class Controller {
     // Potential management
     context.queuePacket(new InitPacket(potential));
     reevaluatePotential();
-    connectedNodeStream().forEach(ctx -> {
+    availableNodesStream().forEach(ctx -> {
       if (ctx.key() != clientKey) {
         ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
       }
@@ -218,13 +218,13 @@ public class Controller {
   }
 
   /**
-   * Returns a stream of all connected nodes
+   * Returns a stream of all connected nodes that are available (i.e. not disconnecting)
    * @return stream of all connected nodes
    */
-  public Stream<ConnectionContext> connectedNodeStream() {
+  public Stream<ConnectionContext> availableNodesStream() {
     return selector.keys().stream().map(SelectionKey::attachment)
         .mapMulti((a, consumer) -> {
-          if (a instanceof ConnectionContext) { consumer.accept((ConnectionContext) a); }
+          if (a instanceof ConnectionContext ctx && !ctx.isDisconnecting()) { consumer.accept((ConnectionContext) a); }
         });
   }
 
@@ -240,7 +240,7 @@ public class Controller {
    * Reevaluates the total potential of the network
    */
   public void reevaluatePotential() {
-    potential = 1 + connectedNodeStream().reduce(0, (n, ctx) -> n + ctx.potential(), Integer::sum);
+    potential = 1 + availableNodesStream().reduce(0, (n, ctx) -> n + ctx.potential(), Integer::sum);
   }
 
   /**
@@ -250,7 +250,7 @@ public class Controller {
    */
   public void updateNeighbors(SelectionKey incomingHost) {
     reevaluatePotential();
-    connectedNodeStream().forEach(ctx -> {
+    availableNodesStream().forEach(ctx -> {
       if (ctx.key() != incomingHost) {
         ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
       }

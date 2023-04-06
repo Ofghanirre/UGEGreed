@@ -13,6 +13,18 @@ import java.util.Objects;
 import java.util.logging.Logger;
 
 public class ConnectionContext {
+/*  private enum DisconnectionStatus {
+    NORMAL, RECEIVED_DISC, SENT_OK_DISC;
+
+    public boolean isDisconnecting() {
+      return this != NORMAL;
+    }
+
+    public boolean useDisconnectingQueue() {
+      return this != NORMAL && this != RECEIVED_DISC;
+    }
+  }*/
+
   private final static Logger logger = Logger.getLogger(ConnectionContext.class.getName());
   private final static int BUFFER_SIZE = 10_000;
 
@@ -22,6 +34,8 @@ public class ConnectionContext {
   private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
   private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
   private final Controller controller;
+/*  private DisconnectionStatus disconnectionStatus = DisconnectionStatus.NORMAL;*/
+  private boolean disconnecting = false;
   private boolean closed = false;
   private final PacketReader packetReader = new PacketReader();
 
@@ -58,6 +72,15 @@ public class ConnectionContext {
    */
   public InetSocketAddress host() {
     return remoteHost;
+  }
+
+  /**
+   * Returns if the node on the other side is in the process of disconnecting or not
+   * @return if the node on the other side is in the process of disconnecting or not
+   */
+  public boolean isDisconnecting() {
+    //return disconnectionStatus.isDisconnecting();
+    return disconnecting;
   }
 
   /**
@@ -103,6 +126,11 @@ public class ConnectionContext {
       case ReqPacket reqPacket -> controller.transmitPacketToJobs(reqPacket, this);
       case AccPacket accPacket -> controller.transmitPacketToJobs(accPacket, this);
       case RefPacket refPacket -> controller.transmitPacketToJobs(refPacket, this);
+      case DiscPacket discPacket -> {
+        // TODO use info from discPacket
+        disconnecting = true;
+        queuePacket(new OkDiscPacket());
+      }
 
       default -> logger.warning("Unmanaged packet type: " + packet);
     }
