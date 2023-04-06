@@ -3,6 +3,7 @@ package fr.uge.ugegreed;
 
 import fr.uge.ugegreed.commands.*;
 import fr.uge.ugegreed.jobs.Jobs;
+import fr.uge.ugegreed.packets.DiscPacket;
 import fr.uge.ugegreed.packets.InitPacket;
 import fr.uge.ugegreed.packets.Packet;
 import fr.uge.ugegreed.packets.UpdtPacket;
@@ -97,7 +98,8 @@ public class Controller {
 
   private void processDisconnectCommand(CommandDisconnect command) {
     // TODO when disconnection is implemented
-    System.out.println(command);
+    logger.info("Initiating disconnection");
+    broadcastDisconnection();
   }
 
   private void processDebugCommand(CommandDebug command) {
@@ -264,5 +266,11 @@ public class Controller {
    */
   public void transmitPacketToJobs(Packet packet, ConnectionContext context) {
     jobs.queueContextPacket(packet, context);
+  }
+
+  public void broadcastDisconnection() {
+    // TODO send accurate DISC packet to parent
+
+    availableNodesStream().forEach(ctx -> ctx.queuePacket(new DiscPacket(0, 0, new DiscPacket.InnerDiscPacket[0])));
   }
 }
