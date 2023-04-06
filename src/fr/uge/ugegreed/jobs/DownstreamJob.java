@@ -45,7 +45,7 @@ public final class DownstreamJob implements Job {
         if (checker.isEmpty()) { return false; }
 
         // Distribution algorithm
-        var totalPotential = controller.potential();
+        var totalPotential = controller.potential() - upstreamHost.potential();
         var sizeOfSlices = Long.max((end - start) / totalPotential, 1);
 
         var localPotential = 1;
