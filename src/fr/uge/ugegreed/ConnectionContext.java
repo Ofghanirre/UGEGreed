@@ -130,6 +130,7 @@ public class ConnectionContext {
         // TODO use info from discPacket
         disconnecting = true;
         queuePacket(new OkDiscPacket());
+        controller.updateNeighbors(key);
       }
 
       default -> logger.warning("Unmanaged packet type: " + packet);
