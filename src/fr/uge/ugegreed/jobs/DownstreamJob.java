@@ -43,7 +43,7 @@ public final class DownstreamJob implements Job {
     /**
      * Prepares and starts a job
      */
-    public boolean startJob() throws IOException {
+    public boolean startJob() {
         // TODO: replace this!!!!
         var checker = CheckerRetriever.checkerFromHTTP(jarUrl, className);
         if (checker.isEmpty()) { return false; }

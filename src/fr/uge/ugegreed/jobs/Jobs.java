@@ -119,12 +119,8 @@ public class Jobs {
 
     private void processReqPacket(ReqPacket reqPacket, ConnectionContext context) {
         var job = new DownstreamJob(context, reqPacket, taskExecutor);
-        try {
-            if (!job.startJob()) {
-                context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
-                return;
-            }
-        } catch (IOException e) {
+        if (!job.startJob()) {
+            logger.warning("Could not start job based on " + reqPacket);
             context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
             return;
         }
