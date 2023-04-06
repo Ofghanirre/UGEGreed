@@ -72,7 +72,11 @@ public class ConnectionContext {
       switch (status) {
         case DONE -> {
           var packet = packetReader.get();
-          logger.info("Received packet from " + remoteHost + ": " + packet);
+
+          if (!(packet instanceof AnsPacket)) {
+            logger.info("Received packet from " + remoteHost + ": " + packet);
+          }
+
           processPacket(packet);
           packetReader.reset();
         }

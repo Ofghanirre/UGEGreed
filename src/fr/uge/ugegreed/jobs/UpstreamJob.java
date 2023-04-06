@@ -65,18 +65,24 @@ public final class UpstreamJob implements Job {
         var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
         if (checker.isEmpty()) { return false; }
 
-        // TODO: Add distribution of requests
-        var potential = controller.potential();
-        var sizeOfSlices = Long.max((end - start) / potential, 1);
+        // Distribution algorithm
+        var totalPotential = controller.potential();
+        var sizeOfSlices = Long.max(Math.ceilDiv(end - start, totalPotential), 1);
 
+        var localPotential = 1;
         var cursor = start;
-        executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices);
+
+        logger.info("Taking range " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
+        executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices * localPotential);
 
         var hosts = controller.connectedNodeStream().toList();
         for (var context : hosts) {
-            cursor += sizeOfSlices;
+            cursor += sizeOfSlices * localPotential;
             if (cursor >= end) { break; }
-            context.queuePacket(new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices, end)));
+            localPotential = context.potential();
+            context.queuePacket(
+                new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices * localPotential, end))
+            );
         }
 
         jobRunning = true;
