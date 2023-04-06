@@ -4,9 +4,7 @@ import fr.uge.ugegreed.CheckerRetriever;
 import fr.uge.ugegreed.ConnectionContext;
 import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
-import fr.uge.ugegreed.packets.AnsPacket;
-import fr.uge.ugegreed.packets.Packet;
-import fr.uge.ugegreed.packets.ReqPacket;
+import fr.uge.ugegreed.packets.*;
 
 import java.util.Objects;
 import java.util.logging.Logger;
@@ -66,7 +64,7 @@ public final class DownstreamJob implements Job {
             );
         }
 
-        executor.addJob(checker.get(), jobID, start, end);
+        upstreamHost.queuePacket(new AccPacket(jobID, start, end));
         jobRunning = true;
         logger.info("Job " + jobID + " started.");
         return true;
@@ -78,8 +76,24 @@ public final class DownstreamJob implements Job {
         if (!jobRunning) { return; }
         switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
+            case AccPacket accPacket -> handleAccept(accPacket);
+            case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
         }
+    }
+
+    private void handleRefuse(RefPacket refPacket) {
+        // Takes job for himself
+
+        // TODO: replace this as well...
+        var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
+        if (checker.isEmpty()) { throw new AssertionError(); }
+
+        executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
+    }
+
+    private void handleAccept(AccPacket accPacket) {
+        // Do nothing
     }
 
     private void handleAnswer(AnsPacket ansPacket) {
