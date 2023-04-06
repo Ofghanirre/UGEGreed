@@ -60,6 +60,10 @@ public class DiscPacketReader implements Reader<DiscPacket> {
             return ProcessStatus.ERROR;
           }
           innerDiscPackets = new DiscPacket.InnerDiscPacket[numberOfJobs];
+          if (numberOfJobs == 0) {
+            state = State.DONE;
+            continue;
+          }
           state = State.WAITING_HOSTS;
         }
 
