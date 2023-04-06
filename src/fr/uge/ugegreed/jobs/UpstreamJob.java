@@ -75,7 +75,7 @@ public final class UpstreamJob implements Job {
         logger.info("Scheduling " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
         executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices * localPotential);
 
-        var hosts = controller.connectedNodeStream().toList();
+        var hosts = controller.availableNodesStream().toList();
         for (var context : hosts) {
             cursor += sizeOfSlices * localPotential;
             if (cursor >= end) { break; }
@@ -102,17 +102,17 @@ public final class UpstreamJob implements Job {
     }
 
     @Override
-    public void handlePacket(Packet packet) throws IOException {
-        if (!jobRunning) { return; }
-        switch (packet) {
+    public boolean handlePacket(Packet packet) throws IOException {
+        if (!jobRunning) { return true; }
+        return switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
             case AccPacket accPacket -> handleAccept(accPacket);
             case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
-        }
+        };
     }
 
-    private void handleRefuse(RefPacket refPacket) {
+    private boolean handleRefuse(RefPacket refPacket) {
         // Takes job for himself
 
         // TODO: replace this as well...
@@ -120,13 +120,15 @@ public final class UpstreamJob implements Job {
         if (checker.isEmpty()) { throw new AssertionError(); }
 
         executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
+        return true;
     }
 
-    private void handleAccept(AccPacket accPacket) {
+    private boolean handleAccept(AccPacket accPacket) {
         // Do nothing
+        return true;
     }
 
-    private void handleAnswer(AnsPacket ansPacket) throws IOException {
+    private boolean handleAnswer(AnsPacket ansPacket) throws IOException {
         output.write(ansPacket.result());
         output.newLine();
         counter++;
@@ -135,5 +137,6 @@ public final class UpstreamJob implements Job {
             logger.info("Job " + jobID + " finished.");
             end();
         }
+        return true;
     }
 }
