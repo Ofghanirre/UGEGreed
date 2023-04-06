@@ -1,8 +1,6 @@
 package fr.uge.ugegreed;
 
-import fr.uge.ugegreed.packets.InitPacket;
-import fr.uge.ugegreed.packets.Packet;
-import fr.uge.ugegreed.packets.UpdtPacket;
+import fr.uge.ugegreed.packets.*;
 import fr.uge.ugegreed.readers.PacketReader;
 
 import java.io.IOException;
@@ -74,8 +72,12 @@ public class ConnectionContext {
       switch (status) {
         case DONE -> {
           var packet = packetReader.get();
-          logger.info("Received packet from " + remoteHost + ": " + packet);
-          treatPacket(packet);
+
+          if (!(packet instanceof AnsPacket)) {
+            logger.info("Received packet from " + remoteHost + ": " + packet);
+          }
+
+          processPacket(packet);
           packetReader.reset();
         }
         case REFILL -> {return;}
@@ -87,7 +89,7 @@ public class ConnectionContext {
     }
   }
 
-  private void treatPacket(Packet packet) {
+  private void processPacket(Packet packet) {
     switch (packet) {
       case InitPacket initPacket -> {
         potential = initPacket.potential();
@@ -97,6 +99,11 @@ public class ConnectionContext {
         potential = updtPacket.potential();
         controller.updateNeighbors(key);
       }
+      case AnsPacket ansPacket -> controller.transmitPacketToJobs(ansPacket, this);
+      case ReqPacket reqPacket -> controller.transmitPacketToJobs(reqPacket, this);
+      case AccPacket accPacket -> controller.transmitPacketToJobs(accPacket, this);
+      case RefPacket refPacket -> controller.transmitPacketToJobs(refPacket, this);
+
       default -> logger.warning("Unmanaged packet type: " + packet);
     }
   }

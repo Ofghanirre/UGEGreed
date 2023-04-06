@@ -1,9 +1,9 @@
 package fr.uge.ugegreed.jobs;
 
 import fr.uge.ugegreed.CheckerRetriever;
+import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
-import fr.uge.ugegreed.packets.AnsPacket;
-import fr.uge.ugegreed.packets.Packet;
+import fr.uge.ugegreed.packets.*;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -15,6 +15,7 @@ import java.util.logging.Logger;
 public final class UpstreamJob implements Job {
     private final static Logger logger = Logger.getLogger(UpstreamJob.class.getName());
     private final TaskExecutor executor;
+    private final Controller controller;
     private final long jobID;
     private final String jarURL;
     private final String className;
@@ -35,7 +36,8 @@ public final class UpstreamJob implements Job {
      * @param outputFilePath path to the output file
      * @param executor taskExecutor this job must use
      */
-    public UpstreamJob(long jobID, String jarURL, String className, long start, long end, Path outputFilePath, TaskExecutor executor) {
+    public UpstreamJob(long jobID, String jarURL, String className, long start, long end, Path outputFilePath,
+                       TaskExecutor executor, Controller controller) {
         if (jobID < 0) {
             throw new IllegalArgumentException("jobID must be positive");
         }
@@ -49,7 +51,9 @@ public final class UpstreamJob implements Job {
         this.end = end;
         this.outputPath = Objects.requireNonNull(outputFilePath);
         this.executor = Objects.requireNonNull(executor);
+        this.controller = Objects.requireNonNull(controller);
     }
+
 
     /**
      * Prepares and starts a job
@@ -61,11 +65,28 @@ public final class UpstreamJob implements Job {
         var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
         if (checker.isEmpty()) { return false; }
 
-        // TODO: Add distribution of requests
+        // Distribution algorithm
+        var totalPotential = controller.potential();
+        var sizeOfSlices = Long.max(Math.ceilDiv(end - start, totalPotential), 1);
 
-        executor.addJob(checker.get(), jobID, start, end);
+        var localPotential = 1;
+        var cursor = start;
+
+        logger.info("Taking range " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
+        executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices * localPotential);
+
+        var hosts = controller.connectedNodeStream().toList();
+        for (var context : hosts) {
+            cursor += sizeOfSlices * localPotential;
+            if (cursor >= end) { break; }
+            localPotential = context.potential();
+            context.queuePacket(
+                new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices * localPotential, end))
+            );
+        }
+
         jobRunning = true;
-        logger.info("Job " + jobID + " started.");
+        logger.info("Job " + jobID + " distributed and started.");
         return true;
     }
 
@@ -78,8 +99,24 @@ public final class UpstreamJob implements Job {
         if (!jobRunning) { return; }
         switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
+            case AccPacket accPacket -> handleAccept(accPacket);
+            case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
         }
+    }
+
+    private void handleRefuse(RefPacket refPacket) {
+        // Takes job for himself
+
+        // TODO: replace this as well...
+        var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
+        if (checker.isEmpty()) { throw new AssertionError(); }
+
+        executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
+    }
+
+    private void handleAccept(AccPacket accPacket) {
+        // Do nothing
     }
 
     private void handleAnswer(AnsPacket ansPacket) throws IOException {
