@@ -72,7 +72,7 @@ public final class UpstreamJob implements Job {
         var localPotential = 1;
         var cursor = start;
 
-        logger.info("Taking range " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
+        logger.info("Scheduling " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
         executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices * localPotential);
 
         var hosts = controller.connectedNodeStream().toList();
@@ -83,6 +83,13 @@ public final class UpstreamJob implements Job {
             context.queuePacket(
                 new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices * localPotential, end))
             );
+        }
+
+        // If for some reason there are remaining numbers, the node takes them
+        if (cursor < end) {
+            logger.warning("Numbers " + cursor + " to " + end + " for job " + jobID +
+                " were not distributed, scheduling them locally...");
+            executor.addJob(checker.get(), jobID, cursor, end);
         }
 
         jobRunning = true;

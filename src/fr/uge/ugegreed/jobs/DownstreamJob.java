@@ -64,6 +64,13 @@ public final class DownstreamJob implements Job {
             );
         }
 
+        // If for some reason there are remaining numbers, the node takes them
+        if (cursor < end) {
+            logger.warning("Numbers " + cursor + " to " + end + " for job " + jobID +
+                " were not distributed, scheduling them locally...");
+            executor.addJob(checker.get(), jobID, cursor, end);
+        }
+
         upstreamHost.queuePacket(new AccPacket(jobID, start, end));
         jobRunning = true;
         logger.info("Job " + jobID + " started.");
