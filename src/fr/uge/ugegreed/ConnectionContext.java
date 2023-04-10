@@ -203,8 +203,8 @@ public class ConnectionContext {
     if (bytesRead == -1) {
       closed = true;
       if (disconnecting) {
-        silentlyClose();
         controller.reconnect(disconnectingPacket);
+        silentlyClose();
         return;
       }
     }

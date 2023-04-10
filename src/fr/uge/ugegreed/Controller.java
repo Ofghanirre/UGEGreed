@@ -13,6 +13,8 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -28,7 +30,8 @@ import java.util.stream.Stream;
 public class Controller {
   private static final Logger logger = Logger.getLogger(Controller.class.getName());
   private final Selector selector;
-  private final InetSocketAddress parentAddress;
+  private InetSocketAddress parentAddress;
+
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
   private SocketChannel parentSocketChannel;
@@ -38,6 +41,7 @@ public class Controller {
   // Related to disconnection
   private boolean disconnecting = false;
   private int disconnectionCounter;
+  private HashMap<InetSocketAddress, ArrayList<Long>> upstreamHostsToreplace = new HashMap<>();
 
   private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
@@ -210,6 +214,14 @@ public class Controller {
     var context = new ConnectionContext(this, clientKey);
     clientKey.attach(context);
 
+    // Reroute jobs if needed
+    var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
+    var jobsToReplace = upstreamHostsToreplace.get(remoteAddress);
+    if (jobsToReplace != null) {
+      logger.warning("THIS WORKED");
+      jobsToReplace.forEach(id -> jobs.swapUpstreamHost(id, clientKey));
+    }
+
     // Potential management
     context.queuePacket(new InitPacket(potential));
     reevaluatePotential();
@@ -326,11 +338,15 @@ public class Controller {
     switch (disconnectionPacket) {
       case DiscPacket discPacket -> {
         for (var innerDiskPacket : discPacket.jobs()) {
-
+          upstreamHostsToreplace.computeIfAbsent(innerDiskPacket.new_upstream(), k -> new ArrayList<Long>())
+              .add(innerDiskPacket.job_id());
         }
       }
       case RediPacket rediPacket -> {
-        this.parentSocketChannel = SocketChannel.open();
+        // Get local address to reuse it so that this node can be identified properly by the new parent
+        var oldAddress = parentSocketChannel.getLocalAddress();
+        parentSocketChannel = SocketChannel.open();
+        parentSocketChannel.bind(oldAddress);
         parentSocketChannel.configureBlocking(false);
         var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
         key.attach(new ConnectionContext(this, key));
@@ -338,6 +354,7 @@ public class Controller {
 
         jobs.swapUpstreamHost(parentKey, key);
         parentKey = key;
+        parentAddress = rediPacket.new_parent();
         logger.info("Connecting to new parent...");
       }
       default -> throw new IllegalArgumentException();
