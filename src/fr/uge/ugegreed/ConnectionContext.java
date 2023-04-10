@@ -13,18 +13,6 @@ import java.util.Objects;
 import java.util.logging.Logger;
 
 public class ConnectionContext {
-/*  private enum DisconnectionStatus {
-    NORMAL, RECEIVED_DISC, SENT_OK_DISC;
-
-    public boolean isDisconnecting() {
-      return this != NORMAL;
-    }
-
-    public boolean useDisconnectingQueue() {
-      return this != NORMAL && this != RECEIVED_DISC;
-    }
-  }*/
-
   private final static Logger logger = Logger.getLogger(ConnectionContext.class.getName());
   private final static int BUFFER_SIZE = 10_000;
 
@@ -34,7 +22,6 @@ public class ConnectionContext {
   private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
   private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
   private final Controller controller;
-/*  private DisconnectionStatus disconnectionStatus = DisconnectionStatus.NORMAL;*/
   private boolean disconnecting = false;
 
   private Packet disconnectingPacket;
