@@ -6,12 +6,10 @@ import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
 
 import java.io.IOException;
+import java.nio.channels.SelectionKey;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Logger;
 import java.util.random.RandomGenerator;
@@ -154,5 +152,17 @@ public class Jobs {
             if (packet == null) break;
             sendPacketToJob(packet, packet.job_id());
         }
+    }
+
+    /**
+     * Returns the list of jobs which are upstream of the given node
+     * @param node
+     * @return list of jobs which are upstream of the given node
+     */
+    public List<Job> getJobsUpstreamOfNode(SelectionKey node) {
+        return jobs.values().stream().filter(job -> {
+            var context = job.getUpstreamContext();
+            return context.filter(connectionContext -> connectionContext.key() == node).isPresent();
+        }).toList();
     }
 }

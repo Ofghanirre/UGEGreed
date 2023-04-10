@@ -1,6 +1,7 @@
 package fr.uge.ugegreed.jobs;
 
 import fr.uge.ugegreed.CheckerRetriever;
+import fr.uge.ugegreed.ConnectionContext;
 import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
@@ -10,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 public final class UpstreamJob implements Job {
@@ -110,6 +112,11 @@ public final class UpstreamJob implements Job {
             case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
         };
+    }
+
+    @Override
+    public Optional<ConnectionContext> getUpstreamContext() {
+        return Optional.empty();
     }
 
     private boolean handleRefuse(RefPacket refPacket) {

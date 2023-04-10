@@ -7,6 +7,7 @@ import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 public final class DownstreamJob implements Job {
@@ -87,6 +88,11 @@ public final class DownstreamJob implements Job {
             case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
         };
+    }
+
+    @Override
+    public Optional<ConnectionContext> getUpstreamContext() {
+        return Optional.of(upstreamHost);
     }
 
     private boolean handleRefuse(RefPacket refPacket) {

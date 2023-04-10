@@ -273,8 +273,9 @@ public class Controller {
     jobs.queueContextPacket(packet, context);
   }
 
-  public void broadcastDisconnection() {
+  private void broadcastDisconnection() {
     int nbReco = (int) availableNodesStream().count() - 1;
+    var jobsUpstreamOfParent = jobs.getJobsUpstreamOfNode(parentKey);
     // TODO send accurate DISC packet to parent
     availableNodesStream().forEach(ctx -> {
       if (ctx.key() == parentKey) {
