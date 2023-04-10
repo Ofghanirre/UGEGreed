@@ -74,15 +74,16 @@ public final class UpstreamJob implements Job {
 
         logger.info("Scheduling " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
         executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices * localPotential);
+        cursor += sizeOfSlices * localPotential;
 
         var hosts = controller.availableNodesStream().toList();
         for (var context : hosts) {
-            cursor += sizeOfSlices * localPotential;
             if (cursor >= end) { break; }
             localPotential = context.potential();
             context.queuePacket(
                 new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices * localPotential, end))
             );
+            cursor += sizeOfSlices * localPotential;
         }
 
         // If for some reason there are remaining numbers, the node takes them

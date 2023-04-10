@@ -51,17 +51,18 @@ public final class DownstreamJob implements Job {
         var localPotential = 1;
         var cursor = start;
         executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices);
+        cursor += sizeOfSlices * localPotential;
 
         var hosts = controller.availableNodesStream()
             .filter(ctx -> ctx.key() != upstreamHost.key())
             .toList();
         for (var context : hosts) {
-            cursor += sizeOfSlices * localPotential;
             if (cursor >= end) { break; }
             localPotential = context.potential();
             context.queuePacket(
                 new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices * localPotential, end))
             );
+            cursor += sizeOfSlices * localPotential;
         }
 
         // If for some reason there are remaining numbers, the node takes them

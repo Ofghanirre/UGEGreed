@@ -194,4 +194,20 @@ public class Jobs {
             }
         });
     }
+
+    /**
+     * Swaps the upstream host of a certain job for a new one.
+     * @param jobID job that must be updated
+     * @param swap new host
+     */
+    public void swapUpstreamHost(long jobID, SelectionKey swap) {
+        var job = jobs.get(jobID);
+        if (job != null) {
+            switch (job) {
+                case DownstreamJob downstreamJob -> downstreamJob.setUpstreamContext((ConnectionContext) swap.attachment());
+                case UpstreamJob upstreamJob -> logger.warning("Trying to change upstream host of a job that is already upstream");
+                default -> throw new AssertionError();
+            }
+        }
+    }
 }
