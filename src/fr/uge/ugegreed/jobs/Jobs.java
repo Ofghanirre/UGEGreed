@@ -163,7 +163,7 @@ public class Jobs {
         Objects.requireNonNull(node);
         return jobs.values().stream().<DownstreamJob>mapMulti((job, consumer) -> {
             switch (job) {
-                case UpstreamJob upstreamJob -> {}
+                case UpstreamJob ignored -> {}
                 case DownstreamJob downstreamJob -> {
                     if (downstreamJob.getUpstreamContext().key() != node) {
                         consumer.accept(downstreamJob);
@@ -184,7 +184,7 @@ public class Jobs {
         Objects.requireNonNull(swap);
         jobs.forEach((k, job) -> {
             switch (job) {
-                case UpstreamJob upstreamJob -> {}
+                case UpstreamJob ignored -> {}
                 case DownstreamJob downstreamJob -> {
                     if (downstreamJob.getUpstreamContext().key() == previous) {
                         downstreamJob.setUpstreamContext((ConnectionContext) swap.attachment());
@@ -205,9 +205,23 @@ public class Jobs {
         if (job != null) {
             switch (job) {
                 case DownstreamJob downstreamJob -> downstreamJob.setUpstreamContext((ConnectionContext) swap.attachment());
-                case UpstreamJob upstreamJob -> logger.warning("Trying to change upstream host of a job that is already upstream");
+                case UpstreamJob ignored -> logger.warning("Trying to change upstream host of a job that is already upstream");
                 default -> throw new AssertionError();
             }
         }
+    }
+
+    /**
+     * Sends ref packets to every upstream node for work that this node took on
+     * but did not complete
+     */
+    public void cancelAllOngoingDownstreamWork() {
+        jobs.forEach((k, job) -> {
+            switch (job) {
+                case UpstreamJob ignored -> {}
+                case DownstreamJob downstreamJob -> downstreamJob.cancelOngoingWork();
+                default -> throw new AssertionError();
+            }
+        });
     }
 }

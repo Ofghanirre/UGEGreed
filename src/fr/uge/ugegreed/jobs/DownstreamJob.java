@@ -6,10 +6,26 @@ import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
 
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.logging.Logger;
 
 public final class DownstreamJob implements Job {
+    private static class WorkRange {
+        private final long start;
+        private final long end;
+        private long lastSent;
+
+        private WorkRange(long start, long end) {
+            this.start = start;
+            this.end = end;
+        }
+
+        private void updateLastSent(long lastSent) {
+            if (lastSent <= this.lastSent) { throw new IllegalStateException(); }
+            this.lastSent = lastSent;
+        }
+    }
     private final Logger logger = Logger.getLogger(DownstreamJob.class.getName());
     private ConnectionContext upstreamHost;
     private final long jobID;
@@ -21,6 +37,9 @@ public final class DownstreamJob implements Job {
     private final TaskExecutor executor;
     private final Controller controller;
     private boolean jobRunning = false;
+
+    // Field about the work that was taken by the node itself
+    private final ArrayList<WorkRange> workRanges = new ArrayList<>();
 
     public DownstreamJob(ConnectionContext upstreamHost, ReqPacket reqPacket, TaskExecutor executor,
                          Controller controller) {
@@ -51,6 +70,7 @@ public final class DownstreamJob implements Job {
         var localPotential = 1;
         var cursor = start;
         executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices);
+        workRanges.add(new WorkRange(cursor, cursor + sizeOfSlices));
         cursor += sizeOfSlices * localPotential;
 
         var hosts = controller.availableNodesStream()
@@ -70,6 +90,7 @@ public final class DownstreamJob implements Job {
             logger.warning("Numbers " + cursor + " to " + end + " for job " + jobID +
                 " were not distributed, scheduling them locally...");
             executor.addJob(checker.get(), jobID, cursor, end);
+            workRanges.add(new WorkRange(cursor, end));
         }
 
         upstreamHost.queuePacket(new AccPacket(jobID, start, end));
@@ -111,10 +132,11 @@ public final class DownstreamJob implements Job {
         if (checker.isEmpty()) { throw new AssertionError(); }
 
         executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
+        workRanges.add(new WorkRange(refPacket.range_start(), refPacket.range_end()));
         return true;
     }
 
-    private boolean handleAccept(AccPacket accPacket) {
+    private boolean handleAccept(AccPacket ignored) {
         // Do nothing
         return true;
     }
@@ -124,11 +146,32 @@ public final class DownstreamJob implements Job {
             return false;
         }
         upstreamHost.queuePacket(ansPacket);
+        updateWorkRanges(ansPacket.number());
         counter++;
         if (counter >= end - start) {
             jobRunning = false;
             logger.info("Job " + jobID + " finished.");
         }
         return true;
+    }
+
+    private void updateWorkRanges(long number) {
+        for (var workRange : workRanges) {
+            if (number >= workRange.start && number < workRange.end) {
+                workRange.updateLastSent(number);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Sends refpackets to the upstream node for each work ranges this node took on and that isn't completed
+     */
+    public void cancelOngoingWork() {
+        for (var workRange : workRanges) {
+            if (workRange.lastSent < workRange.end - 1) {
+                upstreamHost.queuePacket(new RefPacket(jobID, workRange.lastSent + 1, workRange.end));
+            }
+        }
     }
 }
