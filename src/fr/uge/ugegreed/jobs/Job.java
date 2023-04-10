@@ -1,10 +1,8 @@
 package fr.uge.ugegreed.jobs;
 
-import fr.uge.ugegreed.ConnectionContext;
 import fr.uge.ugegreed.packets.Packet;
 
 import java.io.IOException;
-import java.util.Optional;
 
 /**
  * Represents a job
@@ -18,6 +16,5 @@ public sealed interface Job permits DownstreamJob, UpstreamJob {
      * @throws IOException
      */
     boolean handlePacket(Packet packet) throws IOException;
-    Optional<ConnectionContext> getUpstreamContext();
     long jobID();
 }

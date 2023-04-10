@@ -159,10 +159,39 @@ public class Jobs {
      * @param node
      * @return list of jobs which are upstream of the given node
      */
-    public List<Job> getJobsUpstreamOfNode(SelectionKey node) {
-        return jobs.values().stream().filter(job -> {
-            var context = job.getUpstreamContext();
-            return context.filter(connectionContext -> connectionContext.key() != node).isPresent();
+    public List<DownstreamJob> getJobsUpstreamOfNode(SelectionKey node) {
+        Objects.requireNonNull(node);
+        return jobs.values().stream().<DownstreamJob>mapMulti((job, consumer) -> {
+            switch (job) {
+                case UpstreamJob upstreamJob -> {}
+                case DownstreamJob downstreamJob -> {
+                    if (downstreamJob.getUpstreamContext().key() != node) {
+                        consumer.accept(downstreamJob);
+                    }
+                }
+                default -> throw new AssertionError();
+            }
         }).toList();
+    }
+
+    /**
+     * Swaps the upstream host of downstream jobs for a new one.
+     * @param previous previous host
+     * @param swap new host
+     */
+    public void swapUpstreamHost(SelectionKey previous, SelectionKey swap) {
+        Objects.requireNonNull(previous);
+        Objects.requireNonNull(swap);
+        jobs.forEach((k, job) -> {
+            switch (job) {
+                case UpstreamJob upstreamJob -> {}
+                case DownstreamJob downstreamJob -> {
+                    if (downstreamJob.getUpstreamContext().key() == previous) {
+                        downstreamJob.setUpstreamContext((ConnectionContext) swap.attachment());
+                    }
+                }
+                default -> throw new AssertionError();
+            }
+        });
     }
 }

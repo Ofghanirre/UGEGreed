@@ -7,7 +7,6 @@ import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 public final class DownstreamJob implements Job {
@@ -90,9 +89,12 @@ public final class DownstreamJob implements Job {
         };
     }
 
-    @Override
-    public Optional<ConnectionContext> getUpstreamContext() {
-        return Optional.of(upstreamHost);
+    public ConnectionContext getUpstreamContext() {
+        return upstreamHost;
+    }
+
+    public void setUpstreamContext(ConnectionContext newContext) {
+        upstreamHost = newContext;
     }
 
     @Override

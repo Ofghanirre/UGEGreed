@@ -292,7 +292,7 @@ public class Controller {
         var innerDiskPackets = new DiscPacket.InnerDiscPacket[innerDiskPacketSize];
         for (var i = 0 ; i < innerDiskPacketSize ; i++) {
           var job = jobsUpstreamOfParent.get(i);
-          innerDiskPackets[i] = new DiscPacket.InnerDiscPacket(job.jobID(), job.getUpstreamContext().get().host());
+          innerDiskPackets[i] = new DiscPacket.InnerDiscPacket(job.jobID(), job.getUpstreamContext().host());
         }
         ctx.queuePacket(new DiscPacket(nbReco, innerDiskPacketSize, innerDiskPackets));
       } else {
@@ -324,17 +324,21 @@ public class Controller {
   public void reconnect(Packet disconnectionPacket) throws IOException {
     Objects.requireNonNull(disconnectionPacket);
     switch (disconnectionPacket) {
-      case DiscPacket discPacket -> {;}
+      case DiscPacket discPacket -> {
+        for (var innerDiskPacket : discPacket.jobs()) {
+
+        }
+      }
       case RediPacket rediPacket -> {
         this.parentSocketChannel = SocketChannel.open();
         parentSocketChannel.configureBlocking(false);
         var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
         key.attach(new ConnectionContext(this, key));
         parentSocketChannel.connect(rediPacket.new_parent());
+
+        jobs.swapUpstreamHost(parentKey, key);
         parentKey = key;
         logger.info("Connecting to new parent...");
-
-        // TODO update jobs
       }
       default -> throw new IllegalArgumentException();
     }
