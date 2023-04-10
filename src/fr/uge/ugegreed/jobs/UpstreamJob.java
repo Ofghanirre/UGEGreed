@@ -125,6 +125,8 @@ public final class UpstreamJob implements Job {
         var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
         if (checker.isEmpty()) { throw new AssertionError(); }
 
+        logger.info("Received refusal for range " + refPacket.range_start() + " to "
+            + refPacket.range_end() + ", rescheduling locally...");
         executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
         return true;
     }

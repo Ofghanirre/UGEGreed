@@ -41,7 +41,7 @@ public class Controller {
   // Related to disconnection
   private boolean disconnecting = false;
   private int disconnectionCounter;
-  private HashMap<InetSocketAddress, ArrayList<Long>> upstreamHostsToreplace = new HashMap<>();
+  private final HashMap<InetSocketAddress, ArrayList<Long>> upstreamHostsToreplace = new HashMap<>();
 
   private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
@@ -87,9 +87,9 @@ public class Controller {
         if (command == null) { return; }
         switch (command) {
           case CommandStart commandStart -> processStartCommand(commandStart);
-          case CommandDisconnect commandDisconnect -> processDisconnectCommand(commandDisconnect);
+          case CommandDisconnect ignored -> processDisconnectCommand();
           case CommandDebug commandDebug -> processDebugCommand(commandDebug);
-          case CommandHelp commandHelp -> processHelpCommand();
+          case CommandHelp ignored -> processHelpCommand();
           default -> throw new UnsupportedOperationException("Unknown command: " + command);
         }
       }
@@ -103,7 +103,7 @@ public class Controller {
     }
   }
 
-  private void processDisconnectCommand(CommandDisconnect command) {
+  private void processDisconnectCommand() {
     if (parentKey == null) {
       logger.warning("Cannot initiate disconnection on ROOT node");
     }
@@ -218,8 +218,8 @@ public class Controller {
     var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
     var jobsToReplace = upstreamHostsToreplace.get(remoteAddress);
     if (jobsToReplace != null) {
-      logger.warning("THIS WORKED");
       jobsToReplace.forEach(id -> jobs.swapUpstreamHost(id, clientKey));
+      upstreamHostsToreplace.remove(remoteAddress);
     }
 
     // Potential management
@@ -294,8 +294,9 @@ public class Controller {
   private void broadcastDisconnection() {
     int nbReco = (int) availableNodesStream().count() - 1;
     var jobsUpstreamOfParent = jobs.getJobsUpstreamOfNode(parentKey);
+
     // Send ref packets for parts of jobs it had accepted to do
-    // TODO
+    jobs.cancelAllOngoingDownstreamWork();
 
     // Send disc packet to parent, redi to others
     availableNodesStream().forEach(ctx -> {
@@ -338,7 +339,7 @@ public class Controller {
     switch (disconnectionPacket) {
       case DiscPacket discPacket -> {
         for (var innerDiskPacket : discPacket.jobs()) {
-          upstreamHostsToreplace.computeIfAbsent(innerDiskPacket.new_upstream(), k -> new ArrayList<Long>())
+          upstreamHostsToreplace.computeIfAbsent(innerDiskPacket.new_upstream(), k -> new ArrayList<>())
               .add(innerDiskPacket.job_id());
         }
       }
