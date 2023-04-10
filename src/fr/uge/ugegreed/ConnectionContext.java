@@ -36,6 +36,8 @@ public class ConnectionContext {
   private final Controller controller;
 /*  private DisconnectionStatus disconnectionStatus = DisconnectionStatus.NORMAL;*/
   private boolean disconnecting = false;
+
+  private Packet disconnectingPacket;
   private boolean closed = false;
   private final PacketReader packetReader = new PacketReader();
 
@@ -127,11 +129,18 @@ public class ConnectionContext {
       case AccPacket accPacket -> controller.transmitPacketToJobs(accPacket, this);
       case RefPacket refPacket -> controller.transmitPacketToJobs(refPacket, this);
       case DiscPacket discPacket -> {
-        // TODO use info from discPacket
         disconnecting = true;
         queuePacket(new OkDiscPacket());
         controller.updateNeighbors(key);
+        disconnectingPacket = discPacket;
       }
+      case RediPacket rediPacket -> {
+        disconnecting = true;
+        queuePacket(new OkDiscPacket());
+        controller.updateNeighbors(key);
+        disconnectingPacket = rediPacket;
+      }
+      case OkDiscPacket okDiscPacket -> controller.processOkDisc();
 
       default -> logger.warning("Unmanaged packet type: " + packet);
     }
@@ -193,6 +202,11 @@ public class ConnectionContext {
     var bytesRead = sc.read(bufferIn);
     if (bytesRead == -1) {
       closed = true;
+      if (disconnecting) {
+        silentlyClose();
+        controller.reconnect(disconnectingPacket);
+        return;
+      }
     }
     processIn();
     updateInterestOps();

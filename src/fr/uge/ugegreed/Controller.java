@@ -3,10 +3,7 @@ package fr.uge.ugegreed;
 
 import fr.uge.ugegreed.commands.*;
 import fr.uge.ugegreed.jobs.Jobs;
-import fr.uge.ugegreed.packets.DiscPacket;
-import fr.uge.ugegreed.packets.InitPacket;
-import fr.uge.ugegreed.packets.Packet;
-import fr.uge.ugegreed.packets.UpdtPacket;
+import fr.uge.ugegreed.packets.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -37,6 +34,10 @@ public class Controller {
   private final SocketChannel parentSocketChannel;
   private final Jobs jobs;
   private int potential = 1;
+
+  // Related to disconnection
+  private boolean disconnecting = false;
+  private int disconnectionCounter;
 
   private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
@@ -157,9 +158,11 @@ public class Controller {
     while(!Thread.interrupted()) {
       try {
         selector.select(this::treatKey, 100);
-        jobs.processContextQueue();
-        jobs.processTaskExecutorQueue();
-        processCommands();
+        if (!disconnecting) {
+          jobs.processContextQueue();
+          jobs.processTaskExecutorQueue();
+          processCommands();
+        }
       } catch (UncheckedIOException tunneled) {
         throw tunneled.getCause();
       }
@@ -256,6 +259,7 @@ public class Controller {
    * @param incomingHost host the update package came from
    */
   public void updateNeighbors(SelectionKey incomingHost) {
+    Objects.requireNonNull(incomingHost);
     reevaluatePotential();
     availableNodesStream().forEach(ctx -> {
       if (ctx.key() != incomingHost) {
@@ -270,12 +274,18 @@ public class Controller {
    * @param context context it came from
    */
   public void transmitPacketToJobs(Packet packet, ConnectionContext context) {
+    Objects.requireNonNull(packet);
+    Objects.requireNonNull(context);
     jobs.queueContextPacket(packet, context);
   }
 
   private void broadcastDisconnection() {
     int nbReco = (int) availableNodesStream().count() - 1;
     var jobsUpstreamOfParent = jobs.getJobsUpstreamOfNode(parentKey);
+    // Send ref packets for parts of jobs it had accepted to do
+    // TODO
+
+    // Send disc packet to parent, redi to others
     availableNodesStream().forEach(ctx -> {
       if (ctx.key() == parentKey) {
         var innerDiskPacketSize = jobsUpstreamOfParent.size();
@@ -286,8 +296,37 @@ public class Controller {
         }
         ctx.queuePacket(new DiscPacket(nbReco, innerDiskPacketSize, innerDiskPackets));
       } else {
-        ctx.queuePacket(new DiscPacket(0, 0, new DiscPacket.InnerDiscPacket[0]));
+        ctx.queuePacket(new RediPacket(parentAddress));
       }
     });
+    disconnecting = true;
+    disconnectionCounter = (int) availableNodesStream().count();
+  }
+
+  /**
+   * Processes the reception of an OK_DISC packet from one of the neighbors
+   */
+  public void processOkDisc() {
+    disconnectionCounter--;
+    if (disconnectionCounter == 0) {
+      // Shutdown server
+      selector.keys().forEach(this::silentlyClose);
+      Thread.currentThread().interrupt();
+      System.exit(0);
+    }
+  }
+
+  /**
+   * Does what's necessary to reconnect the network after the disconnecting node has gone
+   * @param disconnectionPacket that was received by the disconnecting node, should be a RediPacket or a
+   *                            DiscPacket
+   */
+  public void reconnect(Packet disconnectionPacket) {
+    Objects.requireNonNull(disconnectionPacket);
+    switch (disconnectionPacket) {
+      case DiscPacket discPacket -> {;}
+      case RediPacket rediPacket -> {;}
+      default -> throw new IllegalArgumentException();
+    }
   }
 }
