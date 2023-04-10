@@ -95,6 +95,11 @@ public final class DownstreamJob implements Job {
         return Optional.of(upstreamHost);
     }
 
+    @Override
+    public long jobID() {
+        return jobID;
+    }
+
     private boolean handleRefuse(RefPacket refPacket) {
         // Takes job for himself
 

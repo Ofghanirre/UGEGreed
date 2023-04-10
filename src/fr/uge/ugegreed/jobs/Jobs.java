@@ -162,7 +162,7 @@ public class Jobs {
     public List<Job> getJobsUpstreamOfNode(SelectionKey node) {
         return jobs.values().stream().filter(job -> {
             var context = job.getUpstreamContext();
-            return context.filter(connectionContext -> connectionContext.key() == node).isPresent();
+            return context.filter(connectionContext -> connectionContext.key() != node).isPresent();
         }).toList();
     }
 }

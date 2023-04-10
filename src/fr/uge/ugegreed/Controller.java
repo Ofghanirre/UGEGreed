@@ -276,10 +276,15 @@ public class Controller {
   private void broadcastDisconnection() {
     int nbReco = (int) availableNodesStream().count() - 1;
     var jobsUpstreamOfParent = jobs.getJobsUpstreamOfNode(parentKey);
-    // TODO send accurate DISC packet to parent
     availableNodesStream().forEach(ctx -> {
       if (ctx.key() == parentKey) {
-        ctx.queuePacket(new DiscPacket(nbReco, 0, new DiscPacket.InnerDiscPacket[0]));
+        var innerDiskPacketSize = jobsUpstreamOfParent.size();
+        var innerDiskPackets = new DiscPacket.InnerDiscPacket[innerDiskPacketSize];
+        for (var i = 0 ; i < innerDiskPacketSize ; i++) {
+          var job = jobsUpstreamOfParent.get(i);
+          innerDiskPackets[i] = new DiscPacket.InnerDiscPacket(job.jobID(), job.getUpstreamContext().get().host());
+        }
+        ctx.queuePacket(new DiscPacket(nbReco, innerDiskPacketSize, innerDiskPackets));
       } else {
         ctx.queuePacket(new DiscPacket(0, 0, new DiscPacket.InnerDiscPacket[0]));
       }

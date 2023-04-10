@@ -18,6 +18,6 @@ public sealed interface Job permits DownstreamJob, UpstreamJob {
      * @throws IOException
      */
     boolean handlePacket(Packet packet) throws IOException;
-
     Optional<ConnectionContext> getUpstreamContext();
+    long jobID();
 }

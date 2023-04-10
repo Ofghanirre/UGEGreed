@@ -119,6 +119,11 @@ public final class UpstreamJob implements Job {
         return Optional.empty();
     }
 
+    @Override
+    public long jobID() {
+        return jobID;
+    }
+
     private boolean handleRefuse(RefPacket refPacket) {
         // Takes job for himself
 
