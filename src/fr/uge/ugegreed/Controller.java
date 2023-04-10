@@ -37,6 +37,8 @@ public class Controller {
   private final SocketChannel parentSocketChannel;
   private final Jobs jobs;
   private int potential = 1;
+
+  private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
 
   /**
@@ -97,7 +99,9 @@ public class Controller {
   }
 
   private void processDisconnectCommand(CommandDisconnect command) {
-    // TODO when disconnection is implemented
+    if (parentKey == null) {
+      logger.warning("Cannot initiate disconnection on ROOT node");
+    }
     logger.info("Initiating disconnection");
     broadcastDisconnection();
   }
@@ -141,6 +145,7 @@ public class Controller {
       var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
       key.attach(new ConnectionContext(this, key));
       parentSocketChannel.connect(parentAddress);
+      parentKey = key;
       logger.info("Connecting to parent...");
     } else {
       logger.info("In ROOT mode.");
@@ -269,8 +274,14 @@ public class Controller {
   }
 
   public void broadcastDisconnection() {
+    int nbReco = (int) availableNodesStream().count() - 1;
     // TODO send accurate DISC packet to parent
-
-    availableNodesStream().forEach(ctx -> ctx.queuePacket(new DiscPacket(0, 0, new DiscPacket.InnerDiscPacket[0])));
+    availableNodesStream().forEach(ctx -> {
+      if (ctx.key() == parentKey) {
+        ctx.queuePacket(new DiscPacket(nbReco, 0, new DiscPacket.InnerDiscPacket[0]));
+      } else {
+        ctx.queuePacket(new DiscPacket(0, 0, new DiscPacket.InnerDiscPacket[0]));
+      }
+    });
   }
 }
