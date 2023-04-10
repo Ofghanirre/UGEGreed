@@ -232,6 +232,7 @@ public class ConnectionContext {
     if (!sc.finishConnect()) return;
     key.interestOps(SelectionKey.OP_READ);
     remoteHost = (InetSocketAddress) sc.getRemoteAddress();
+    queuePacket(new UpdtPacket(controller.potential()));
     logger.info("Connected to " + remoteHost);
   }
 

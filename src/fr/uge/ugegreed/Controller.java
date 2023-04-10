@@ -31,7 +31,7 @@ public class Controller {
   private final InetSocketAddress parentAddress;
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
-  private final SocketChannel parentSocketChannel;
+  private SocketChannel parentSocketChannel;
   private final Jobs jobs;
   private int potential = 1;
 
@@ -321,11 +321,21 @@ public class Controller {
    * @param disconnectionPacket that was received by the disconnecting node, should be a RediPacket or a
    *                            DiscPacket
    */
-  public void reconnect(Packet disconnectionPacket) {
+  public void reconnect(Packet disconnectionPacket) throws IOException {
     Objects.requireNonNull(disconnectionPacket);
     switch (disconnectionPacket) {
       case DiscPacket discPacket -> {;}
-      case RediPacket rediPacket -> {;}
+      case RediPacket rediPacket -> {
+        this.parentSocketChannel = SocketChannel.open();
+        parentSocketChannel.configureBlocking(false);
+        var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
+        key.attach(new ConnectionContext(this, key));
+        parentSocketChannel.connect(rediPacket.new_parent());
+        parentKey = key;
+        logger.info("Connecting to new parent...");
+
+        // TODO update jobs
+      }
       default -> throw new IllegalArgumentException();
     }
   }
