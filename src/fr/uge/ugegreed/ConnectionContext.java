@@ -14,7 +14,7 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-public class ConnectionContext {
+public final class ConnectionContext implements Context {
   private final static Logger logger = Logger.getLogger(ConnectionContext.class.getName());
   private final static int BUFFER_SIZE = 10_000;
 
