@@ -53,22 +53,22 @@ public class StringReader implements Reader<String> {
 	@Override
 	public ProcessStatus process(ByteBuffer buffer) {
 		if (state == State.DONE || state == State.ERROR) {
-      throw new IllegalStateException();
+      		throw new IllegalStateException();
 		}
 		for (;;) {
 			buffer.flip();
 			if (buffer.remaining() <= internalBuffer.remaining()) {
-	      internalBuffer.put(buffer);
-	    } else {
-	        var oldLimit = buffer.limit();
-	        buffer.limit(internalBuffer.remaining());
-	        internalBuffer.put(buffer);
-	        buffer.limit(oldLimit);
-	    }
+	      		internalBuffer.put(buffer);
+			} else {
+				var oldLimit = buffer.limit();
+				buffer.limit(internalBuffer.remaining());
+				internalBuffer.put(buffer);
+				buffer.limit(oldLimit);
+			}
 			buffer.compact();
 			
 			if (internalBuffer.hasRemaining()) {
-        return ProcessStatus.REFILL;
+				return ProcessStatus.REFILL;
 			}
 			
 			switch (state) {
@@ -100,15 +100,15 @@ public class StringReader implements Reader<String> {
 	@Override
 	public String get() {
 		if (state != State.DONE) {
-      throw new IllegalStateException();
-    }
+      		throw new IllegalStateException();
+		}
     return value;
 	}
 
 	@Override
 	public void reset() {
 		state = State.WAITING_SIZE;
-    internalBuffer.clear();
-    internalBuffer.limit(Integer.BYTES);
+    	internalBuffer.clear();
+    	internalBuffer.limit(Integer.BYTES);
 	}
 }

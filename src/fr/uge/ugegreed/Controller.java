@@ -2,16 +2,17 @@ package fr.uge.ugegreed;
 
 
 import fr.uge.ugegreed.commands.*;
+import fr.uge.ugegreed.jobs.Job;
 import fr.uge.ugegreed.jobs.Jobs;
 import fr.uge.ugegreed.packets.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.channels.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,6 +30,7 @@ import java.util.stream.Stream;
  */
 public final class Controller {
   private static final Logger logger = Logger.getLogger(Controller.class.getName());
+  private final Path jarPath;
   private final Selector selector;
   private InetSocketAddress parentAddress;
 
@@ -59,6 +61,9 @@ public final class Controller {
     }
     Objects.requireNonNull(resultPath);
 
+    jarPath = resultPath.resolve("_jars");
+    Files.createDirectories(jarPath);
+
     this.listenPort = listenPort;
     this.selector = Selector.open();
     jobs = new Jobs(resultPath, this);
@@ -80,7 +85,7 @@ public final class Controller {
     }
   }
 
-  private void processCommands() {
+  private void processCommands() throws IOException {
     for (;;) {
       synchronized (commandQueue) {
         var command = commandQueue.poll();
@@ -96,7 +101,7 @@ public final class Controller {
     }
   }
 
-  private void processStartCommand(CommandStart command) {
+  private void processStartCommand(CommandStart command) throws IOException {
     var result = jobs.createJob(command.urlJAR(), command.className(), command.rangeStart(), command.rangeEnd(), command.filename());
     if (!result) {
       logger.info("Job could not be started");
@@ -148,7 +153,7 @@ public final class Controller {
     if (parentAddress != null) {
       parentSocketChannel.configureBlocking(false);
       var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
-      key.attach(new ConnectionContext(this, key));
+      key.attach(new ConnectionContext(this, key, true));
       parentSocketChannel.connect(parentAddress);
       parentKey = key;
       logger.info("Connecting to parent...");
@@ -184,13 +189,13 @@ public final class Controller {
     }
     try {
       if (key.isValid() && key.isConnectable()) {
-        ((ConnectionContext) key.attachment()).doConnect();
+        ((Context) key.attachment()).doConnect();
       }
       if (key.isValid() && key.isWritable()) {
-        ((ConnectionContext) key.attachment()).doWrite();
+        ((Context) key.attachment()).doWrite();
       }
       if (key.isValid() && key.isReadable()) {
-        ((ConnectionContext) key.attachment()).doRead();
+        ((Context) key.attachment()).doRead();
       }
     }
     catch (IOException e) {
@@ -211,7 +216,7 @@ public final class Controller {
     logger.info("Client " + sc.getRemoteAddress() + " connected.");
     sc.configureBlocking(false);
     var clientKey = sc.register(selector, SelectionKey.OP_READ);
-    var context = new ConnectionContext(this, clientKey);
+    var context = new ConnectionContext(this, clientKey, false);
     clientKey.attach(context);
 
     // Reroute jobs if needed
@@ -246,7 +251,7 @@ public final class Controller {
   public Stream<ConnectionContext> availableNodesStream() {
     return selector.keys().stream().map(SelectionKey::attachment)
         .mapMulti((a, consumer) -> {
-          if (a instanceof ConnectionContext ctx && !ctx.isDisconnecting()) { consumer.accept((ConnectionContext) a); }
+          if (a instanceof ConnectionContext ctx && !ctx.isUnavailableForAnswerPackets()) { consumer.accept((ConnectionContext) a); }
         });
   }
 
@@ -283,12 +288,16 @@ public final class Controller {
   /**
    * Transmits a packet from a context to the job manager
    * @param packet packet to transmit
-   * @param context context it came from
    */
-  public void transmitPacketToJobs(Packet packet, ConnectionContext context) {
+  public void transmitPacketToJobs(Packet packet) {
+    Objects.requireNonNull(packet);
+    jobs.queueContextPacket(packet);
+  }
+
+  public void processRequestPacket(ReqPacket packet, ConnectionContext context) throws IOException {
     Objects.requireNonNull(packet);
     Objects.requireNonNull(context);
-    jobs.queueContextPacket(packet, context);
+    jobs.processReqPacket(packet, context);
   }
 
   private void broadcastDisconnection() {
@@ -350,7 +359,7 @@ public final class Controller {
         parentSocketChannel.bind(oldAddress);
         parentSocketChannel.configureBlocking(false);
         var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
-        key.attach(new ConnectionContext(this, key));
+        key.attach(new ConnectionContext(this, key, true));
         parentSocketChannel.connect(rediPacket.new_parent());
 
         jobs.swapUpstreamHost(parentKey, key);
@@ -359,6 +368,26 @@ public final class Controller {
         logger.info("Connecting to new parent...");
       }
       default -> throw new IllegalArgumentException();
+    }
+  }
+
+  /**
+   * Starts the download of a JAR file
+   * @param jarURL URL of the jar
+   * @param job job which asked for the download
+   * @throws IOException
+   */
+  public void downloadJar(String jarURL, Job job) throws IOException {
+    try {
+      URL url = new URL(jarURL);
+      var socketChannel = SocketChannel.open();
+      socketChannel.configureBlocking(false);
+      var key = socketChannel.register(selector, SelectionKey.OP_CONNECT);
+      key.attach(new HttpContext(key, jarURL, jarPath, job));
+      socketChannel.connect(new InetSocketAddress(url.getHost(), 80));
+    } catch (MalformedURLException | UnresolvedAddressException ignored) {
+      logger.warning(jarURL + " is an invalid URL");
+      job.jarDownloadFail();
     }
   }
 }

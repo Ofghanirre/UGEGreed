@@ -25,7 +25,7 @@ public final class Jobs {
     private final Controller controller;
     private final RandomGenerator rng = RandomGenerator.of("L64X128MixRandom");
     private final Map<Long, Job> jobs = new HashMap<>();
-    private final ArrayDeque<ContextPacket> contextQueue = new ArrayDeque<>();
+    private final ArrayDeque<Packet> contextQueue = new ArrayDeque<>();
     private final ArrayBlockingQueue<AnsPacket> taskExecutorQueue = new ArrayBlockingQueue<>(TASK_EXECUTOR_MAX_READING_AMOUNT);
     private final TaskExecutor taskExecutor = new TaskExecutor(this.taskExecutorQueue);
     private final Path resultPath;
@@ -62,7 +62,7 @@ public final class Jobs {
      * @param fileName name of the file in which to store the results
      * @return true if the job is valid, false else
      */
-    public boolean createJob(String jarURL, String mainClass, long start, long end, String fileName) {
+    public boolean createJob(String jarURL, String mainClass, long start, long end, String fileName) throws IOException {
         checkJobParameters(jarURL, mainClass, start, end, fileName);
         long jobID = generateJobID();
 
@@ -74,12 +74,7 @@ public final class Jobs {
         }
         var job = new UpstreamJob(jobID, jarURL, mainClass, start, end, fullPath, taskExecutor, controller);
 
-        try {
-            if (!job.startJob()) { return false; }
-        } catch (IOException e) {
-            return false;
-        }
-
+        job.prepareJob();
         jobs.put(jobID, job);
         return true;
     }
@@ -92,23 +87,22 @@ public final class Jobs {
         return jobID;
     }
 
-    private boolean sendPacketToJob(Packet packet, long job_id) throws IOException {
+    private void sendPacketToJob(Packet packet, long job_id) throws IOException {
         var job = jobs.get(job_id);
-        //logger.info(packet.toString());
         if (job == null) {
             logger.warning("Invalid Job_id given " + job_id);
-            return true;
+            return;
         }
-        return job.handlePacket(packet);
+        job.handlePacket(packet);
     }
 
     /**
      * Queues a packet that came from another node
      * @param packet packet to queue
-     * @param context context of the node it came from
      */
-    public void queueContextPacket(Packet packet, ConnectionContext context) {
-        contextQueue.add(new ContextPacket(packet, context));
+    public void queueContextPacket(Packet packet) {
+        Objects.requireNonNull(packet);
+        contextQueue.add(packet);
     }
 
     /**
@@ -117,30 +111,26 @@ public final class Jobs {
     public void processContextQueue() throws IOException {
         var numberOfPackets = contextQueue.size();
         for (var i = 0 ; i < numberOfPackets ; i++) {
-            ContextPacket contextPacket = contextQueue.remove();
-            var used = switch (contextPacket.packet()) {
+            var packet = contextQueue.remove();
+            switch (packet) {
                 case AnsPacket ansPacket -> sendPacketToJob(ansPacket, ansPacket.job_id());
                 case AccPacket accPacket -> sendPacketToJob(accPacket, accPacket.job_id());
                 case RefPacket refPacket -> sendPacketToJob(refPacket, refPacket.job_id());
-                case ReqPacket reqPacket -> processReqPacket(reqPacket, contextPacket.context());
                 default -> throw new AssertionError("unhandled packet tested");
-            };
-            if (!used) {
-                contextQueue.add(contextPacket);
             }
         }
     }
 
-    private boolean processReqPacket(ReqPacket reqPacket, ConnectionContext context) {
+    /**
+     * Processes a request packet
+     * @param reqPacket request packet
+     * @param context context it came from
+     * @throws IOException in case of connection errors
+     */
+    public void processReqPacket(ReqPacket reqPacket, ConnectionContext context) throws IOException {
         var job = new DownstreamJob(context, reqPacket, taskExecutor, controller);
-        if (!job.startJob()) {
-            logger.warning("Could not start job based on " + reqPacket);
-            context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
-            return true;
-        }
-
+        job.prepareJob();
         jobs.put(reqPacket.job_id(), job);
-        return true;
     }
 
     /**

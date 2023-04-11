@@ -12,7 +12,7 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-public final class ConnectionContext {
+public final class ConnectionContext implements Context {
   private final static Logger logger = Logger.getLogger(ConnectionContext.class.getName());
   private final static int BUFFER_SIZE = 10_000;
 
@@ -22,6 +22,7 @@ public final class ConnectionContext {
   private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
   private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
   private final Controller controller;
+  private boolean connectionComplete;
   private boolean disconnecting = false;
   private Packet disconnectingPacket;
   private boolean closed = false;
@@ -29,11 +30,12 @@ public final class ConnectionContext {
   private final ArrayDeque<Packet> queue = new ArrayDeque<>();
   private int potential = 1;
 
-  public ConnectionContext(Controller controller, SelectionKey key) throws IOException {
+  public ConnectionContext(Controller controller, SelectionKey key, boolean needConnection) throws IOException {
     this.controller = Objects.requireNonNull(controller);
     this.key = Objects.requireNonNull(key);
     sc = (SocketChannel) key.channel();
     remoteHost = (InetSocketAddress) sc.getRemoteAddress();
+    connectionComplete = !needConnection;
   }
 
   /**
@@ -61,12 +63,11 @@ public final class ConnectionContext {
   }
 
   /**
-   * Returns if the node on the other side is in the process of disconnecting or not
-   * @return if the node on the other side is in the process of disconnecting or not
+   * Returns if the node is unavailable to send answer packets
+   * @return if the node is unavailable to send answer packets
    */
-  public boolean isDisconnecting() {
-    //return disconnectionStatus.isDisconnecting();
-    return disconnecting;
+  public boolean isUnavailableForAnswerPackets() {
+    return disconnecting || !connectionComplete;
   }
 
   /**
@@ -75,7 +76,7 @@ public final class ConnectionContext {
    * and after the call
    *
    */
-  private void processIn() {
+  private void processIn() throws IOException {
     for (;;) {
       var status = packetReader.process(bufferIn);
       switch (status) {
@@ -98,7 +99,7 @@ public final class ConnectionContext {
     }
   }
 
-  private void processPacket(Packet packet) {
+  private void processPacket(Packet packet) throws IOException {
     switch (packet) {
       case InitPacket initPacket -> {
         potential = initPacket.potential();
@@ -108,10 +109,10 @@ public final class ConnectionContext {
         potential = updtPacket.potential();
         controller.updateNeighbors(key);
       }
-      case AnsPacket ansPacket -> controller.transmitPacketToJobs(ansPacket, this);
-      case ReqPacket reqPacket -> controller.transmitPacketToJobs(reqPacket, this);
-      case AccPacket accPacket -> controller.transmitPacketToJobs(accPacket, this);
-      case RefPacket refPacket -> controller.transmitPacketToJobs(refPacket, this);
+      case AnsPacket ansPacket -> controller.transmitPacketToJobs(ansPacket);
+      case ReqPacket reqPacket -> controller.processRequestPacket(reqPacket, this);
+      case AccPacket accPacket -> controller.transmitPacketToJobs(accPacket);
+      case RefPacket refPacket -> controller.transmitPacketToJobs(refPacket);
       case DiscPacket discPacket -> {
         disconnecting = true;
         queuePacket(new OkDiscPacket());
@@ -163,6 +164,7 @@ public final class ConnectionContext {
    */
 
   private void updateInterestOps() {
+    if (!key.isValid()) { return ;}
     int ops = 0;
     if (!closed && bufferIn.hasRemaining()) {
       ops |= SelectionKey.OP_READ;
@@ -214,6 +216,7 @@ public final class ConnectionContext {
 
   public void doConnect() throws IOException {
     if (!sc.finishConnect()) return;
+    connectionComplete = true;
     key.interestOps(SelectionKey.OP_READ);
     remoteHost = (InetSocketAddress) sc.getRemoteAddress();
     queuePacket(new UpdtPacket(controller.potential()));

@@ -1,5 +1,6 @@
 package fr.uge.ugegreed.jobs;
 
+import fr.uge.ugegreed.Checker;
 import fr.uge.ugegreed.CheckerRetriever;
 import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
@@ -25,6 +26,7 @@ public final class UpstreamJob implements Job {
     private BufferedWriter output;
     private boolean jobRunning = false;
     private long counter;
+    private Checker checker;
 
     /**
      * Creates a new upstream job
@@ -54,16 +56,33 @@ public final class UpstreamJob implements Job {
         this.controller = Objects.requireNonNull(controller);
     }
 
+    public void prepareJob() throws IOException {
+        controller.downloadJar(jarURL, this);
+    }
 
-    /**
-     * Prepares and starts a job
-     */
-    public boolean startJob() throws IOException {
+    @Override
+    public void jarDownloadFail() {
+        logger.warning("Could not download jar " + jarURL);
+    }
+
+    @Override
+    public void jarDownloadSuccess(Path jarPath) {
+        var tryChecker = CheckerRetriever.checkerFromDisk(jarPath, className);
+        if (tryChecker.isEmpty()) {
+            logger.warning("Could not load checker from jar " + jarURL);
+            return;
+        }
+        checker = tryChecker.get();
+        try {
+            startJob();
+        } catch (IOException e){
+            logger.warning("Was unable to open result file " + outputPath);
+        }
+    }
+
+
+    private void startJob() throws IOException {
         this.output = Files.newBufferedWriter(outputPath);
-
-        // TODO: replace this!!!!
-        var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
-        if (checker.isEmpty()) { return false; }
 
         // Distribution algorithm
         var totalPotential = controller.potential();
@@ -73,7 +92,7 @@ public final class UpstreamJob implements Job {
         var cursor = start;
 
         logger.info("Scheduling " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
-        executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices * localPotential);
+        executor.addJob(checker, jobID, cursor, cursor + sizeOfSlices * localPotential);
         cursor += sizeOfSlices * localPotential;
 
         var hosts = controller.availableNodesStream().toList();
@@ -90,12 +109,11 @@ public final class UpstreamJob implements Job {
         if (cursor < end) {
             logger.warning("Numbers " + cursor + " to " + end + " for job " + jobID +
                 " were not distributed, scheduling them locally...");
-            executor.addJob(checker.get(), jobID, cursor, end);
+            executor.addJob(checker, jobID, cursor, end);
         }
 
         jobRunning = true;
         logger.info("Job " + jobID + " distributed and started.");
-        return true;
     }
 
     public void end() throws IOException {
@@ -103,14 +121,14 @@ public final class UpstreamJob implements Job {
     }
 
     @Override
-    public boolean handlePacket(Packet packet) throws IOException {
-        if (!jobRunning) { return true; }
-        return switch (packet) {
+    public void handlePacket(Packet packet) throws IOException {
+        if (!jobRunning) { return; }
+        switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
             case AccPacket accPacket -> handleAccept(accPacket);
             case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
-        };
+        }
     }
 
     @Override
@@ -118,25 +136,18 @@ public final class UpstreamJob implements Job {
         return jobID;
     }
 
-    private boolean handleRefuse(RefPacket refPacket) {
+    private void handleRefuse(RefPacket refPacket) {
         // Takes job for himself
-
-        // TODO: replace this as well...
-        var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
-        if (checker.isEmpty()) { throw new AssertionError(); }
-
         logger.info("Received refusal for range " + refPacket.range_start() + " to "
             + refPacket.range_end() + ", rescheduling locally...");
-        executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
-        return true;
+        executor.addJob(checker, jobID, refPacket.range_start(), refPacket.range_end());
     }
 
-    private boolean handleAccept(AccPacket ignored) {
+    private void handleAccept(AccPacket ignored) {
         // Do nothing
-        return true;
     }
 
-    private boolean handleAnswer(AnsPacket ansPacket) throws IOException {
+    private void handleAnswer(AnsPacket ansPacket) throws IOException {
         output.write(ansPacket.result());
         output.newLine();
         counter++;
@@ -145,6 +156,5 @@ public final class UpstreamJob implements Job {
             logger.info("Job " + jobID + " finished.");
             end();
         }
-        return true;
     }
 }

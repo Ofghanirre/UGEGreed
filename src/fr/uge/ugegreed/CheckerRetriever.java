@@ -57,22 +57,4 @@ public final class CheckerRetriever {
         }
     }
 
-    public static Optional<Checker> checkerFromHTTP(String url, String className) {
-        try {
-            var jarURL = new URL("jar", "", url + "!/");
-            return retrieveCheckerFromURL(jarURL, className);
-        } catch (MalformedURLException e) {
-            logger.info("URL is malformed");
-            return Optional.empty();
-        }
-    }
-
-    public static void main(String[] args) throws InterruptedException {
-        var checker = checkerFromHTTP("http://www-igm.univ-mlv.fr/~carayol/Factorizer.jar","fr.uge.factors.Factorizer").orElseThrow();
-        System.out.println(checker.check(12L));
-//        checker = checkerFromDisk(Path.of("/Users/carayol/bb/progreseau/jars/Collatz.jar"),"fr.uge.collatz.Collatz").orElseThrow();
-//        System.out.println(checker.check(12L));
-        checker = checkerFromHTTP("http://www-igm.univ-mlv.fr/~carayol/SlowChecker.jar","fr.uge.slow.SlowChecker").orElseThrow();
-        System.out.println(checker.check(12L));
-    }
 }
