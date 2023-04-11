@@ -132,6 +132,9 @@ public class Controller {
     var key = socketChannel.register(selector, SelectionKey.OP_CONNECT);
     key.attach(new HttpContext(key, "http://www-igm.univ-mlv.fr/~carayol/Factorizer.jar"));
     socketChannel.connect(new InetSocketAddress("www-igm.univ-mlv.fr", 80));
+/*    key.attach(new HttpContext(key, "http://www.google.com/"));
+    socketChannel.connect(new InetSocketAddress("www.google.com", 80));*/
+    // TEST
 
     var console = new Console(this);
     Thread.ofPlatform().daemon().start(console::consoleRun);
