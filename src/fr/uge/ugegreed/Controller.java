@@ -355,10 +355,9 @@ public final class Controller {
         parentSocketChannel.bind(oldAddress);
         parentSocketChannel.configureBlocking(false);
         var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
-        key.attach(new ConnectionContext(this, key));
+        key.attach(new ConnectionContext(this, key, () -> jobs.swapUpstreamHost(parentKey, key)));
         parentSocketChannel.connect(rediPacket.new_parent());
 
-        jobs.swapUpstreamHost(parentKey, key);
         parentKey = key;
         parentAddress = rediPacket.new_parent();
         logger.info("Connecting to new parent...");

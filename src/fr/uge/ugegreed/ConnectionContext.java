@@ -18,6 +18,7 @@ public final class ConnectionContext implements Context {
 
   private final SelectionKey key;
   private final SocketChannel sc;
+  private final Runnable connectCallback;
   private InetSocketAddress remoteHost;
   private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
   private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
@@ -31,11 +32,16 @@ public final class ConnectionContext implements Context {
 
   private int potential = 1;
 
-  public ConnectionContext(Controller controller, SelectionKey key) throws IOException {
+  public ConnectionContext(Controller controller, SelectionKey key, Runnable connectCallback) throws IOException {
     this.controller = Objects.requireNonNull(controller);
     this.key = Objects.requireNonNull(key);
     sc = (SocketChannel) key.channel();
     remoteHost = (InetSocketAddress) sc.getRemoteAddress();
+    this.connectCallback = connectCallback;
+  }
+
+  public ConnectionContext(Controller controller, SelectionKey key) throws IOException {
+    this(controller, key, null);
   }
 
   /**
@@ -217,6 +223,7 @@ public final class ConnectionContext implements Context {
 
   public void doConnect() throws IOException {
     if (!sc.finishConnect()) return;
+    if (connectCallback != null) { connectCallback.run(); }
     key.interestOps(SelectionKey.OP_READ);
     remoteHost = (InetSocketAddress) sc.getRemoteAddress();
     queuePacket(new UpdtPacket(controller.potential()));
