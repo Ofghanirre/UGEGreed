@@ -62,7 +62,7 @@ public final class Jobs {
      * @param fileName name of the file in which to store the results
      * @return true if the job is valid, false else
      */
-    public boolean createJob(String jarURL, String mainClass, long start, long end, String fileName) {
+    public boolean createJob(String jarURL, String mainClass, long start, long end, String fileName) throws IOException {
         checkJobParameters(jarURL, mainClass, start, end, fileName);
         long jobID = generateJobID();
 
@@ -74,12 +74,7 @@ public final class Jobs {
         }
         var job = new UpstreamJob(jobID, jarURL, mainClass, start, end, fullPath, taskExecutor, controller);
 
-        try {
-            if (!job.startJob()) { return false; }
-        } catch (IOException e) {
-            return false;
-        }
-
+        job.prepareJob();
         jobs.put(jobID, job);
         return true;
     }
@@ -131,14 +126,9 @@ public final class Jobs {
         }
     }
 
-    private boolean processReqPacket(ReqPacket reqPacket, ConnectionContext context) {
+    private boolean processReqPacket(ReqPacket reqPacket, ConnectionContext context) throws IOException {
         var job = new DownstreamJob(context, reqPacket, taskExecutor, controller);
-        if (!job.startJob()) {
-            logger.warning("Could not start job based on " + reqPacket);
-            context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
-            return true;
-        }
-
+        job.prepareJob();
         jobs.put(reqPacket.job_id(), job);
         return true;
     }

@@ -2,16 +2,17 @@ package fr.uge.ugegreed;
 
 
 import fr.uge.ugegreed.commands.*;
+import fr.uge.ugegreed.jobs.Job;
 import fr.uge.ugegreed.jobs.Jobs;
 import fr.uge.ugegreed.packets.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.channels.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,6 +30,7 @@ import java.util.stream.Stream;
  */
 public final class Controller {
   private static final Logger logger = Logger.getLogger(Controller.class.getName());
+  private static final Path jarPath = Path.of("_jars");
   private final Selector selector;
   private InetSocketAddress parentAddress;
 
@@ -59,6 +61,8 @@ public final class Controller {
     }
     Objects.requireNonNull(resultPath);
 
+    Files.createDirectories(jarPath);
+
     this.listenPort = listenPort;
     this.selector = Selector.open();
     jobs = new Jobs(resultPath, this);
@@ -80,7 +84,7 @@ public final class Controller {
     }
   }
 
-  private void processCommands() {
+  private void processCommands() throws IOException {
     for (;;) {
       synchronized (commandQueue) {
         var command = commandQueue.poll();
@@ -96,7 +100,7 @@ public final class Controller {
     }
   }
 
-  private void processStartCommand(CommandStart command) {
+  private void processStartCommand(CommandStart command) throws IOException {
     var result = jobs.createJob(command.urlJAR(), command.className(), command.rangeStart(), command.rangeEnd(), command.filename());
     if (!result) {
       logger.info("Job could not be started");
@@ -155,16 +159,6 @@ public final class Controller {
     } else {
       logger.info("In ROOT mode.");
     }
-
-    // TEST
-    var socketChannel = SocketChannel.open();
-    socketChannel.configureBlocking(false);
-    var key = socketChannel.register(selector, SelectionKey.OP_CONNECT);
-    key.attach(new HttpContext(key, "http://www-igm.univ-mlv.fr/~carayol/Factorizer.jar"));
-    socketChannel.connect(new InetSocketAddress("www-igm.univ-mlv.fr", 80));
-/*    key.attach(new HttpContext(key, "http://www.google.com/"));
-    socketChannel.connect(new InetSocketAddress("www.google.com", 80));*/
-    // TEST
 
     var console = new Console(this);
     Thread.ofPlatform().daemon().start(console::consoleRun);
@@ -369,6 +363,26 @@ public final class Controller {
         logger.info("Connecting to new parent...");
       }
       default -> throw new IllegalArgumentException();
+    }
+  }
+
+  /**
+   * Starts the download of a JAR file
+   * @param jarURL URL of the jar
+   * @param job job which asked for the download
+   * @throws IOException
+   */
+  public void downloadJar(String jarURL, Job job) throws IOException {
+    try {
+      URL url = new URL(jarURL);
+      var socketChannel = SocketChannel.open();
+      socketChannel.configureBlocking(false);
+      var key = socketChannel.register(selector, SelectionKey.OP_CONNECT);
+      key.attach(new HttpContext(key, jarURL, jarPath, job));
+      socketChannel.connect(new InetSocketAddress(url.getHost(), 80));
+    } catch (MalformedURLException | UnresolvedAddressException ignored) {
+      logger.warning(jarURL + " is an invalid URL");
+      job.jarDownloadFail();
     }
   }
 }

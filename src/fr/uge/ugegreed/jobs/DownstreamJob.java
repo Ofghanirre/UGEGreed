@@ -1,11 +1,10 @@
 package fr.uge.ugegreed.jobs;
 
-import fr.uge.ugegreed.CheckerRetriever;
-import fr.uge.ugegreed.ConnectionContext;
-import fr.uge.ugegreed.Controller;
-import fr.uge.ugegreed.TaskExecutor;
+import fr.uge.ugegreed.*;
 import fr.uge.ugegreed.packets.*;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.logging.Logger;
@@ -37,6 +36,7 @@ public final class DownstreamJob implements Job {
     private final TaskExecutor executor;
     private final Controller controller;
     private boolean jobRunning = false;
+    private Checker checker;
 
     // Field about the work that was taken by the node itself
     private final ArrayList<WorkRange> workRanges = new ArrayList<>();
@@ -54,22 +54,36 @@ public final class DownstreamJob implements Job {
         this.controller = Objects.requireNonNull(controller);
     }
 
+    public void prepareJob() throws IOException {
+        controller.downloadJar(jarURL, this);
+    }
 
-    /**
-     * Prepares and starts a job
-     */
-    public boolean startJob() {
-        // TODO: replace this!!!!
-        var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
-        if (checker.isEmpty()) { return false; }
+    @Override
+    public void jarDownloadFail() {
+        logger.warning("Could not download jar " + jarURL);
+        upstreamHost.queuePacket(new RefPacket(jobID, start, end));
+    }
 
+    @Override
+    public void jarDownloadSuccess(Path jarPath) {
+        var tryChecker = CheckerRetriever.checkerFromDisk(jarPath, className);
+        if (tryChecker.isEmpty()) {
+            logger.warning("Could not load checker from jar " + jarURL);
+            upstreamHost.queuePacket(new RefPacket(jobID, start, end));
+            return;
+        }
+        checker = tryChecker.get();
+        startJob();
+    }
+
+    private void startJob() {
         // Distribution algorithm
         var totalPotential = controller.potential() - upstreamHost.potential();
         var sizeOfSlices = Long.max(Math.ceilDiv(end - start, totalPotential), 1);
 
         var localPotential = 1;
         var cursor = start;
-        executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices);
+        executor.addJob(checker, jobID, cursor, cursor + sizeOfSlices);
         workRanges.add(new WorkRange(cursor, cursor + sizeOfSlices));
         cursor += sizeOfSlices * localPotential;
 
@@ -89,14 +103,13 @@ public final class DownstreamJob implements Job {
         if (cursor < end) {
             logger.warning("Numbers " + cursor + " to " + end + " for job " + jobID +
                 " were not distributed, scheduling them locally...");
-            executor.addJob(checker.get(), jobID, cursor, end);
+            executor.addJob(checker, jobID, cursor, end);
             workRanges.add(new WorkRange(cursor, end));
         }
 
         upstreamHost.queuePacket(new AccPacket(jobID, start, end));
         jobRunning = true;
         logger.info("Job " + jobID + " started.");
-        return true;
     }
 
 
@@ -126,14 +139,9 @@ public final class DownstreamJob implements Job {
 
     private boolean handleRefuse(RefPacket refPacket) {
         // Takes job for himself
-
-        // TODO: replace this as well...
-        var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
-        if (checker.isEmpty()) { throw new AssertionError(); }
-
         logger.info("Received refusal for range " + refPacket.range_start() + " to "
             + refPacket.range_end() + ", rescheduling locally...");
-        executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
+        executor.addJob(checker, jobID, refPacket.range_start(), refPacket.range_end());
         workRanges.add(new WorkRange(refPacket.range_start(), refPacket.range_end()));
         return true;
     }

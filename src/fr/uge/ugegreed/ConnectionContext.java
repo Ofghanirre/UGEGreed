@@ -165,6 +165,7 @@ public final class ConnectionContext implements Context {
    */
 
   private void updateInterestOps() {
+    if (!key.isValid()) { return ;}
     int ops = 0;
     if (!closed && bufferIn.hasRemaining()) {
       ops |= SelectionKey.OP_READ;
