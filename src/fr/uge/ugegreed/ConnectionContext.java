@@ -23,13 +23,10 @@ public class ConnectionContext {
   private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
   private final Controller controller;
   private boolean disconnecting = false;
-
   private Packet disconnectingPacket;
   private boolean closed = false;
   private final PacketReader packetReader = new PacketReader();
-
   private final ArrayDeque<Packet> queue = new ArrayDeque<>();
-
   private int potential = 1;
 
   public ConnectionContext(Controller controller, SelectionKey key) throws IOException {
