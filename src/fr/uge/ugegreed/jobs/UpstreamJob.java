@@ -121,14 +121,14 @@ public final class UpstreamJob implements Job {
     }
 
     @Override
-    public boolean handlePacket(Packet packet) throws IOException {
-        if (!jobRunning) { return true; }
-        return switch (packet) {
+    public void handlePacket(Packet packet) throws IOException {
+        if (!jobRunning) { return; }
+        switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
             case AccPacket accPacket -> handleAccept(accPacket);
             case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
-        };
+        }
     }
 
     @Override
@@ -136,20 +136,18 @@ public final class UpstreamJob implements Job {
         return jobID;
     }
 
-    private boolean handleRefuse(RefPacket refPacket) {
+    private void handleRefuse(RefPacket refPacket) {
         // Takes job for himself
         logger.info("Received refusal for range " + refPacket.range_start() + " to "
             + refPacket.range_end() + ", rescheduling locally...");
         executor.addJob(checker, jobID, refPacket.range_start(), refPacket.range_end());
-        return true;
     }
 
-    private boolean handleAccept(AccPacket ignored) {
+    private void handleAccept(AccPacket ignored) {
         // Do nothing
-        return true;
     }
 
-    private boolean handleAnswer(AnsPacket ansPacket) throws IOException {
+    private void handleAnswer(AnsPacket ansPacket) throws IOException {
         output.write(ansPacket.result());
         output.newLine();
         counter++;
@@ -158,6 +156,5 @@ public final class UpstreamJob implements Job {
             logger.info("Job " + jobID + " finished.");
             end();
         }
-        return true;
     }
 }

@@ -153,7 +153,7 @@ public final class Controller {
     if (parentAddress != null) {
       parentSocketChannel.configureBlocking(false);
       var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
-      key.attach(new ConnectionContext(this, key));
+      key.attach(new ConnectionContext(this, key, true));
       parentSocketChannel.connect(parentAddress);
       parentKey = key;
       logger.info("Connecting to parent...");
@@ -216,7 +216,7 @@ public final class Controller {
     logger.info("Client " + sc.getRemoteAddress() + " connected.");
     sc.configureBlocking(false);
     var clientKey = sc.register(selector, SelectionKey.OP_READ);
-    var context = new ConnectionContext(this, clientKey);
+    var context = new ConnectionContext(this, clientKey, false);
     clientKey.attach(context);
 
     // Reroute jobs if needed
@@ -251,7 +251,7 @@ public final class Controller {
   public Stream<ConnectionContext> availableNodesStream() {
     return selector.keys().stream().map(SelectionKey::attachment)
         .mapMulti((a, consumer) -> {
-          if (a instanceof ConnectionContext ctx && !ctx.isDisconnecting()) { consumer.accept((ConnectionContext) a); }
+          if (a instanceof ConnectionContext ctx && !ctx.isUnavailableForAnswerPackets()) { consumer.accept((ConnectionContext) a); }
         });
   }
 
@@ -288,12 +288,16 @@ public final class Controller {
   /**
    * Transmits a packet from a context to the job manager
    * @param packet packet to transmit
-   * @param context context it came from
    */
-  public void transmitPacketToJobs(Packet packet, ConnectionContext context) {
+  public void transmitPacketToJobs(Packet packet) {
+    Objects.requireNonNull(packet);
+    jobs.queueContextPacket(packet);
+  }
+
+  public void processRequestPacket(ReqPacket packet, ConnectionContext context) throws IOException {
     Objects.requireNonNull(packet);
     Objects.requireNonNull(context);
-    jobs.queueContextPacket(packet, context);
+    jobs.processReqPacket(packet, context);
   }
 
   private void broadcastDisconnection() {
@@ -355,9 +359,10 @@ public final class Controller {
         parentSocketChannel.bind(oldAddress);
         parentSocketChannel.configureBlocking(false);
         var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
-        key.attach(new ConnectionContext(this, key, () -> jobs.swapUpstreamHost(parentKey, key)));
+        key.attach(new ConnectionContext(this, key, true));
         parentSocketChannel.connect(rediPacket.new_parent());
 
+        jobs.swapUpstreamHost(parentKey, key);
         parentKey = key;
         parentAddress = rediPacket.new_parent();
         logger.info("Connecting to new parent...");

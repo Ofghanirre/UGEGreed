@@ -13,10 +13,9 @@ public sealed interface Job permits DownstreamJob, UpstreamJob {
     /**
      * Asks a job to process a packet intended for it
      * @param packet packet to process
-     * @return true is the packet was consumed, false else
      * @throws IOException
      */
-    boolean handlePacket(Packet packet) throws IOException;
+    void handlePacket(Packet packet) throws IOException;
 
     /**
      * Returns job id

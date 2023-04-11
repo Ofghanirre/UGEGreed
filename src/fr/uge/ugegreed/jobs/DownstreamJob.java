@@ -116,14 +116,14 @@ public final class DownstreamJob implements Job {
 
 
     @Override
-    public boolean handlePacket(Packet packet) {
-        if (!jobRunning) { return true; }
-        return switch (packet) {
+    public void handlePacket(Packet packet) {
+        if (!jobRunning) { return; }
+        switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
             case AccPacket accPacket -> handleAccept(accPacket);
             case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
-        };
+        }
     }
 
     public ConnectionContext getUpstreamContext() {
@@ -139,23 +139,22 @@ public final class DownstreamJob implements Job {
         return jobID;
     }
 
-    private boolean handleRefuse(RefPacket refPacket) {
+    private void handleRefuse(RefPacket refPacket) {
         // Takes job for himself
         logger.info("Received refusal for range " + refPacket.range_start() + " to "
             + refPacket.range_end() + ", rescheduling locally...");
         executor.addJob(checker, jobID, refPacket.range_start(), refPacket.range_end());
         workRanges.add(new WorkRange(refPacket.range_start(), refPacket.range_end()));
-        return true;
     }
 
-    private boolean handleAccept(AccPacket ignored) {
+    private void handleAccept(AccPacket ignored) {
         // Do nothing
-        return true;
     }
 
-    private boolean handleAnswer(AnsPacket ansPacket) {
-        if (upstreamHost.isDisconnecting()) {
-            return false;
+    private void handleAnswer(AnsPacket ansPacket) {
+        if (upstreamHost.isUnavailableForAnswerPackets()) {
+            controller.transmitPacketToJobs(ansPacket);
+            return;
         }
         upstreamHost.queuePacket(ansPacket);
         updateWorkRanges(ansPacket.number());
@@ -164,7 +163,6 @@ public final class DownstreamJob implements Job {
             jobRunning = false;
             logger.info("Job " + jobID + " finished.");
         }
-        return true;
     }
 
     private void updateWorkRanges(long number) {
