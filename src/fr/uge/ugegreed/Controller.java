@@ -30,7 +30,7 @@ import java.util.stream.Stream;
  */
 public final class Controller {
   private static final Logger logger = Logger.getLogger(Controller.class.getName());
-  private static final Path jarPath = Path.of("_jars");
+  private final Path jarPath;
   private final Selector selector;
   private InetSocketAddress parentAddress;
 
@@ -61,6 +61,7 @@ public final class Controller {
     }
     Objects.requireNonNull(resultPath);
 
+    jarPath = resultPath.resolve("_jars");
     Files.createDirectories(jarPath);
 
     this.listenPort = listenPort;

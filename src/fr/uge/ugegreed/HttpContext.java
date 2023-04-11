@@ -68,7 +68,7 @@ public final class HttpContext implements Context {
                 switch (status) {
                     case DONE -> {
                         HttpHeader httpHeader = httpHeaderReader.get();
-                        logger.info("HEADER: " + httpHeader);
+                        //logger.info("HEADER: " + httpHeader);
                         prepareBody();
                         if (httpHeader.getCode() != 200 || httpHeader.getContentLength() == -1) {
                             job.jarDownloadFail();

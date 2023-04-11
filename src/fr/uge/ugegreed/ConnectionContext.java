@@ -84,9 +84,9 @@ public final class ConnectionContext implements Context {
         case DONE -> {
           var packet = packetReader.get();
 
-          if (!(packet instanceof AnsPacket)) {
+/*          if (!(packet instanceof AnsPacket)) {
             logger.info("Received packet from " + remoteHost + ": " + packet);
-          }
+          }*/
 
           processPacket(packet);
           packetReader.reset();

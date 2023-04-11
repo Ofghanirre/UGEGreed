@@ -83,6 +83,8 @@ public final class DownstreamJob implements Job {
 
         var localPotential = 1;
         var cursor = start;
+
+        logger.info("Scheduling " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
         executor.addJob(checker, jobID, cursor, cursor + sizeOfSlices);
         workRanges.add(new WorkRange(cursor, cursor + sizeOfSlices));
         cursor += sizeOfSlices * localPotential;
