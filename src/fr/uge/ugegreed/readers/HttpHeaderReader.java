@@ -27,7 +27,6 @@ public class HttpHeaderReader implements Reader<HttpHeader> {
             switch (status) {
                 case DONE -> {
                     var line = lineReader.get();
-                    System.err.println("LINE GOT: " + line);
                     if (line.equals("")) {
                         state = State.DONE;
                         break;
