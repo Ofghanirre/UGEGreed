@@ -13,9 +13,9 @@ public class HttpRequestParser {
         String path = url.getPath();
 
         return "GET " + path + " HTTP/1.1\r\n" +
-                "Host: " + host + ":" + port + "\r\n" +
-                "Accept: application/java-archive\r\n" +
-                "Connection: close" +
+                "Host: " + host + "\r\n" +
+                "Accept: */*\r\n" +
+                "Connection: close\r\n" +
                 "\r\n";
     }
 
