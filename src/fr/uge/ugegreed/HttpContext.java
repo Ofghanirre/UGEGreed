@@ -1,6 +1,7 @@
 package fr.uge.ugegreed;
 
 import fr.uge.ugegreed.http.HttpHeader;
+import fr.uge.ugegreed.readers.HttpHeaderLineReader;
 import fr.uge.ugegreed.readers.HttpHeaderReader;
 import fr.uge.ugegreed.utils.HttpRequestParser;
 
@@ -13,6 +14,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.logging.Logger;
 
 public final class HttpContext implements Context {
+    private enum State {
+        WAITING_HEADER, WAITING_BODY, DONE
+    }
     private static final Logger logger = Logger.getLogger(HttpHeader.class.getName());
     private static final int BUFFER_SIZE = 16384;
     private final SelectionKey key;
@@ -21,29 +25,38 @@ public final class HttpContext implements Context {
     private final ByteBuffer bufferReceive = ByteBuffer.allocate(BUFFER_SIZE);
     private final HttpHeaderReader httpHeaderReader = new HttpHeaderReader();
     private boolean closed = false;
+    private State state = State.WAITING_HEADER;
 
 
     public HttpContext(SelectionKey key, String jar_URL) throws MalformedURLException {
         this.key = key;
         this.sc = (SocketChannel) key.channel();
-        this.bufferSend = StandardCharsets.US_ASCII.encode(HttpRequestParser.getRequestFromURL(jar_URL));
+        var request = HttpRequestParser.getRequestFromURL(jar_URL);
+        logger.info("Request: " + request);
+        this.bufferSend = StandardCharsets.US_ASCII.encode(HttpRequestParser.getRequestFromURL(jar_URL)).compact();
     }
 
     public void processRead() {
         for (;;) {
-            var status = httpHeaderReader.process(bufferReceive);
-            switch (status) {
-                case DONE -> {
-                    HttpHeader httpHeader = httpHeaderReader.get();
-                    if (HttpRequestParser.testHttpHeaderCode(httpHeader.getCode(), logger)) {
+            if (state == State.WAITING_HEADER) {
+                var status = httpHeaderReader.process(bufferReceive);
+                switch (status) {
+                    case DONE -> {
+                        HttpHeader httpHeader = httpHeaderReader.get();
+                        logger.info("HEADER: " + httpHeader);
+                        state = State.WAITING_BODY;
+                    /*if (HttpRequestParser.testHttpHeaderCode(httpHeader.getCode(), logger)) {
                         closed = true;
                         logger.info(httpHeader.toString());
+                    }*/
                     }
-                }
-                case REFILL -> { return ; }
-                case ERROR -> {
-                    silentlyClose();
-                    return;
+                    case REFILL -> {
+                        return ;
+                    }
+                    case ERROR -> {
+                        silentlyClose();
+                        return;
+                    }
                 }
             }
         }
@@ -113,7 +126,7 @@ public final class HttpContext implements Context {
 
     public void doConnect() throws IOException {
         if (!sc.finishConnect()) return;
-        key.interestOps(SelectionKey.OP_WRITE);
+        key.interestOps(SelectionKey.OP_WRITE | SelectionKey.OP_READ);
         logger.info("Connected to HTTP server...");
     }
 }
