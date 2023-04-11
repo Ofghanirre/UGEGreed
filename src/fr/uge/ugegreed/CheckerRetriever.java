@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.logging.Logger;
 
 
-public class CheckerRetriever {
+public final class CheckerRetriever {
     private static final Logger logger = Logger.getLogger(CheckerRetriever.class.getName());
 
 
@@ -18,7 +18,6 @@ public class CheckerRetriever {
      * This method downloads the jar file from the given url
      * and creates an instance of the class assuming it implements the
      * fr.uge.ugegreed.Checker interface.
-     *
      * This method can both be used retrieve the class from a local jar file
      * or from a jar file provided by an HTTP server. The behavior depends
      * on the url parameter.

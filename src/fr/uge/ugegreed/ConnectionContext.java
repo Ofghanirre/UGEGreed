@@ -12,7 +12,7 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-public class ConnectionContext {
+public final class ConnectionContext {
   private final static Logger logger = Logger.getLogger(ConnectionContext.class.getName());
   private final static int BUFFER_SIZE = 10_000;
 
@@ -124,7 +124,7 @@ public class ConnectionContext {
         controller.updateNeighbors(key);
         disconnectingPacket = rediPacket;
       }
-      case OkDiscPacket okDiscPacket -> controller.processOkDisc();
+      case OkDiscPacket ignored -> controller.processOkDisc();
 
       default -> logger.warning("Unmanaged packet type: " + packet);
     }
@@ -180,7 +180,7 @@ public class ConnectionContext {
    * The convention is that both buffers are in write-mode before the call to
    * doRead and after the call
    *
-   * @throws IOException
+   * @throws IOException in case of issues with the socket
    */
   public void doRead() throws IOException {
     var bytesRead = sc.read(bufferIn);
@@ -201,7 +201,7 @@ public class ConnectionContext {
    * The convention is that both buffers are in write-mode before the call to
    * doWrite and after the call
    *
-   * @throws IOException
+   * @throws IOException in case of issues with the socket
    */
 
   public void doWrite() throws IOException {

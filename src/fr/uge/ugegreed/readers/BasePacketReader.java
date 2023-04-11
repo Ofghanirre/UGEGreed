@@ -14,7 +14,7 @@ import java.util.function.Function;
  * These do NOT read the first initial byte, as it's considered to have been read already
  * @param <T> packet type to be read
  */
-public class BasePacketReader<T> implements Reader<T> {
+public final class BasePacketReader<T> implements Reader<T> {
   private enum State {
     DONE, WAITING, ERROR
   }

@@ -10,7 +10,7 @@ import java.util.logging.Logger;
 /**
  * Manages the console
  */
-public class Console {
+public final class Console {
   private static final Logger logger = Logger.getLogger(Console.class.getName());
   private final Controller controller;
 

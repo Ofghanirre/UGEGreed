@@ -17,7 +17,7 @@ import java.util.random.RandomGenerator;
 /**
  * Manages all aspects of the application relates to jobs
  */
-public class Jobs {
+public final class Jobs {
 
     private static final Logger logger = Logger.getLogger(Jobs.class.getName());
     private static final int TASK_EXECUTOR_MAX_READING_AMOUNT = 128;
@@ -156,7 +156,7 @@ public class Jobs {
 
     /**
      * Returns the list of jobs which are upstream of the given node
-     * @param node
+     * @param node node
      * @return list of jobs which are upstream of the given node
      */
     public List<DownstreamJob> getJobsUpstreamOfNode(SelectionKey node) {

@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Class providing methods to convert Object to ByteBuffer in write mode
  */
-public class TypeToByteWriter {
+public final class TypeToByteWriter {
 
     /**
      * Return a byteBuffer containing the String encoded in UTF-8

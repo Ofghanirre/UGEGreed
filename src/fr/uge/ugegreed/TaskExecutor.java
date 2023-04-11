@@ -7,7 +7,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class TaskExecutor {
+public final class TaskExecutor {
     private final ExecutorService executorService;
     private final ArrayBlockingQueue<AnsPacket> queue;
     public TaskExecutor(ArrayBlockingQueue<AnsPacket> queue) {

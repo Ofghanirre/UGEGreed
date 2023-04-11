@@ -27,7 +27,7 @@ import java.util.stream.Stream;
  * Main controller for the application.
  * Manages the TCP connections and communication.
  */
-public class Controller {
+public final class Controller {
   private static final Logger logger = Logger.getLogger(Controller.class.getName());
   private final Selector selector;
   private InetSocketAddress parentAddress;

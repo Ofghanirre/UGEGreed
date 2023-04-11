@@ -131,7 +131,7 @@ public final class UpstreamJob implements Job {
         return true;
     }
 
-    private boolean handleAccept(AccPacket accPacket) {
+    private boolean handleAccept(AccPacket ignored) {
         // Do nothing
         return true;
     }

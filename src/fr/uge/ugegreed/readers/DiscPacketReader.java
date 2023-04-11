@@ -5,9 +5,8 @@ import fr.uge.ugegreed.utils.TypeToByteWriter;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 
-public class DiscPacketReader implements Reader<DiscPacket> {
+public final class DiscPacketReader implements Reader<DiscPacket> {
 
   private enum State {
     DONE, WAITING_NB_RECO, WAITING_NB_JOBS, WAITING_HOSTS, ERROR
