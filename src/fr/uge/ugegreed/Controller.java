@@ -156,6 +156,13 @@ public final class Controller {
       logger.info("In ROOT mode.");
     }
 
+    // TEST
+    var socketChannel = SocketChannel.open();
+    socketChannel.configureBlocking(false);
+    var key = socketChannel.register(selector, SelectionKey.OP_CONNECT);
+    key.attach(new HttpContext(key, "http://www-igm.univ-mlv.fr/~carayol/Factorizer.jar"));
+    socketChannel.connect(new InetSocketAddress("www-igm.univ-mlv.fr", 80));
+
     var console = new Console(this);
     Thread.ofPlatform().daemon().start(console::consoleRun);
 
@@ -184,13 +191,13 @@ public final class Controller {
     }
     try {
       if (key.isValid() && key.isConnectable()) {
-        ((ConnectionContext) key.attachment()).doConnect();
+        ((Context) key.attachment()).doConnect();
       }
       if (key.isValid() && key.isWritable()) {
-        ((ConnectionContext) key.attachment()).doWrite();
+        ((Context) key.attachment()).doWrite();
       }
       if (key.isValid() && key.isReadable()) {
-        ((ConnectionContext) key.attachment()).doRead();
+        ((Context) key.attachment()).doRead();
       }
     }
     catch (IOException e) {

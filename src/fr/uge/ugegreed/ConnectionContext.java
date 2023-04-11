@@ -12,7 +12,7 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-public final class ConnectionContext {
+public final class ConnectionContext implements Context {
   private final static Logger logger = Logger.getLogger(ConnectionContext.class.getName());
   private final static int BUFFER_SIZE = 10_000;
 
@@ -26,7 +26,9 @@ public final class ConnectionContext {
   private Packet disconnectingPacket;
   private boolean closed = false;
   private final PacketReader packetReader = new PacketReader();
+
   private final ArrayDeque<Packet> queue = new ArrayDeque<>();
+
   private int potential = 1;
 
   public ConnectionContext(Controller controller, SelectionKey key) throws IOException {

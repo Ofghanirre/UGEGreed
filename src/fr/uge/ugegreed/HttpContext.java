@@ -1,5 +1,6 @@
-package fr.uge.ugegreed.http;
+package fr.uge.ugegreed;
 
+import fr.uge.ugegreed.http.HttpHeader;
 import fr.uge.ugegreed.readers.HttpHeaderReader;
 import fr.uge.ugegreed.utils.HttpRequestParser;
 
@@ -11,7 +12,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Logger;
 
-public class HttpContext {
+public final class HttpContext implements Context {
     private static final Logger logger = Logger.getLogger(HttpHeader.class.getName());
     private static final int BUFFER_SIZE = 16384;
     private final SelectionKey key;
@@ -25,7 +26,7 @@ public class HttpContext {
     public HttpContext(SelectionKey key, String jar_URL) throws MalformedURLException {
         this.key = key;
         this.sc = (SocketChannel) key.channel();
-        this.bufferSend = ByteBuffer.wrap(HttpRequestParser.getRequestFromURL(jar_URL).getBytes(StandardCharsets.UTF_8));
+        this.bufferSend = StandardCharsets.US_ASCII.encode(HttpRequestParser.getRequestFromURL(jar_URL));
     }
 
     public void processRead() {
@@ -112,6 +113,7 @@ public class HttpContext {
 
     public void doConnect() throws IOException {
         if (!sc.finishConnect()) return;
-        key.interestOps(SelectionKey.OP_READ);
+        key.interestOps(SelectionKey.OP_WRITE);
+        logger.info("Connected to HTTP server...");
     }
 }
