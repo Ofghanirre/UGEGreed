@@ -6,10 +6,26 @@ import fr.uge.ugegreed.Controller;
 import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
 
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.logging.Logger;
 
 public final class DownstreamJob implements Job {
+    private static class WorkRange {
+        private final long start;
+        private final long end;
+        private long lastSent;
+
+        private WorkRange(long start, long end) {
+            this.start = start;
+            this.end = end;
+        }
+
+        private void updateLastSent(long lastSent) {
+            if (lastSent <= this.lastSent) { throw new IllegalStateException(); }
+            this.lastSent = lastSent;
+        }
+    }
     private final Logger logger = Logger.getLogger(DownstreamJob.class.getName());
     private ConnectionContext upstreamHost;
     private final long jobID;
@@ -21,6 +37,9 @@ public final class DownstreamJob implements Job {
     private final TaskExecutor executor;
     private final Controller controller;
     private boolean jobRunning = false;
+
+    // Field about the work that was taken by the node itself
+    private final ArrayList<WorkRange> workRanges = new ArrayList<>();
 
     public DownstreamJob(ConnectionContext upstreamHost, ReqPacket reqPacket, TaskExecutor executor,
                          Controller controller) {
@@ -51,17 +70,27 @@ public final class DownstreamJob implements Job {
         var localPotential = 1;
         var cursor = start;
         executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices);
+        workRanges.add(new WorkRange(cursor, cursor + sizeOfSlices));
+        cursor += sizeOfSlices * localPotential;
 
-        var hosts = controller.connectedNodeStream()
+        var hosts = controller.availableNodesStream()
             .filter(ctx -> ctx.key() != upstreamHost.key())
             .toList();
         for (var context : hosts) {
-            cursor += sizeOfSlices * localPotential;
             if (cursor >= end) { break; }
             localPotential = context.potential();
             context.queuePacket(
                 new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices * localPotential, end))
             );
+            cursor += sizeOfSlices * localPotential;
+        }
+
+        // If for some reason there are remaining numbers, the node takes them
+        if (cursor < end) {
+            logger.warning("Numbers " + cursor + " to " + end + " for job " + jobID +
+                " were not distributed, scheduling them locally...");
+            executor.addJob(checker.get(), jobID, cursor, end);
+            workRanges.add(new WorkRange(cursor, end));
         }
 
         upstreamHost.queuePacket(new AccPacket(jobID, start, end));
@@ -72,36 +101,79 @@ public final class DownstreamJob implements Job {
 
 
     @Override
-    public void handlePacket(Packet packet) {
-        if (!jobRunning) { return; }
-        switch (packet) {
+    public boolean handlePacket(Packet packet) {
+        if (!jobRunning) { return true; }
+        return switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
             case AccPacket accPacket -> handleAccept(accPacket);
             case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
-        }
+        };
     }
 
-    private void handleRefuse(RefPacket refPacket) {
+    public ConnectionContext getUpstreamContext() {
+        return upstreamHost;
+    }
+
+    public void setUpstreamContext(ConnectionContext newContext) {
+        upstreamHost = newContext;
+    }
+
+    @Override
+    public long jobID() {
+        return jobID;
+    }
+
+    private boolean handleRefuse(RefPacket refPacket) {
         // Takes job for himself
 
         // TODO: replace this as well...
         var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
         if (checker.isEmpty()) { throw new AssertionError(); }
 
+        logger.info("Received refusal for range " + refPacket.range_start() + " to "
+            + refPacket.range_end() + ", rescheduling locally...");
         executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
+        workRanges.add(new WorkRange(refPacket.range_start(), refPacket.range_end()));
+        return true;
     }
 
-    private void handleAccept(AccPacket accPacket) {
+    private boolean handleAccept(AccPacket ignored) {
         // Do nothing
+        return true;
     }
 
-    private void handleAnswer(AnsPacket ansPacket) {
+    private boolean handleAnswer(AnsPacket ansPacket) {
+        if (upstreamHost.isDisconnecting()) {
+            return false;
+        }
         upstreamHost.queuePacket(ansPacket);
+        updateWorkRanges(ansPacket.number());
         counter++;
         if (counter >= end - start) {
             jobRunning = false;
             logger.info("Job " + jobID + " finished.");
+        }
+        return true;
+    }
+
+    private void updateWorkRanges(long number) {
+        for (var workRange : workRanges) {
+            if (number >= workRange.start && number < workRange.end) {
+                workRange.updateLastSent(number);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Sends refpackets to the upstream node for each work ranges this node took on and that isn't completed
+     */
+    public void cancelOngoingWork() {
+        for (var workRange : workRanges) {
+            if (workRange.lastSent < workRange.end - 1) {
+                upstreamHost.queuePacket(new RefPacket(jobID, workRange.lastSent + 1, workRange.end));
+            }
         }
     }
 }

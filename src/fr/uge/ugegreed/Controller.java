@@ -3,9 +3,7 @@ package fr.uge.ugegreed;
 
 import fr.uge.ugegreed.commands.*;
 import fr.uge.ugegreed.jobs.Jobs;
-import fr.uge.ugegreed.packets.InitPacket;
-import fr.uge.ugegreed.packets.Packet;
-import fr.uge.ugegreed.packets.UpdtPacket;
+import fr.uge.ugegreed.packets.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -15,6 +13,8 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -27,15 +27,23 @@ import java.util.stream.Stream;
  * Main controller for the application.
  * Manages the TCP connections and communication.
  */
-public class Controller {
+public final class Controller {
   private static final Logger logger = Logger.getLogger(Controller.class.getName());
   private final Selector selector;
-  private final InetSocketAddress parentAddress;
+  private InetSocketAddress parentAddress;
+
   private final int listenPort;
   private final ServerSocketChannel serverSocketChannel;
-  private final SocketChannel parentSocketChannel;
+  private SocketChannel parentSocketChannel;
   private final Jobs jobs;
   private int potential = 1;
+
+  // Related to disconnection
+  private boolean disconnecting = false;
+  private int disconnectionCounter;
+  private final HashMap<InetSocketAddress, ArrayList<Long>> upstreamHostsToreplace = new HashMap<>();
+
+  private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
 
   /**
@@ -79,9 +87,9 @@ public class Controller {
         if (command == null) { return; }
         switch (command) {
           case CommandStart commandStart -> processStartCommand(commandStart);
-          case CommandDisconnect commandDisconnect -> processDisconnectCommand(commandDisconnect);
+          case CommandDisconnect ignored -> processDisconnectCommand();
           case CommandDebug commandDebug -> processDebugCommand(commandDebug);
-          case CommandHelp commandHelp -> processHelpCommand();
+          case CommandHelp ignored -> processHelpCommand();
           default -> throw new UnsupportedOperationException("Unknown command: " + command);
         }
       }
@@ -95,9 +103,12 @@ public class Controller {
     }
   }
 
-  private void processDisconnectCommand(CommandDisconnect command) {
-    // TODO when disconnection is implemented
-    System.out.println(command);
+  private void processDisconnectCommand() {
+    if (parentKey == null) {
+      logger.warning("Cannot initiate disconnection on ROOT node");
+    }
+    logger.info("Initiating disconnection");
+    broadcastDisconnection();
   }
 
   private void processDebugCommand(CommandDebug command) {
@@ -105,7 +116,7 @@ public class Controller {
       case POTENTIAL -> {
         System.out.println("Total potential: " + potential);
         System.out.println("Neighboring potentials:");
-        connectedNodeStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
+        availableNodesStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
       }
       // Code other debug codes here!
       default -> System.out.println("Unknown debug code: " + command.debugCode());
@@ -139,6 +150,7 @@ public class Controller {
       var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
       key.attach(new ConnectionContext(this, key));
       parentSocketChannel.connect(parentAddress);
+      parentKey = key;
       logger.info("Connecting to parent...");
     } else {
       logger.info("In ROOT mode.");
@@ -150,9 +162,11 @@ public class Controller {
     while(!Thread.interrupted()) {
       try {
         selector.select(this::treatKey, 100);
-        jobs.processContextQueue();
-        jobs.processTaskExecutorQueue();
-        processCommands();
+        if (!disconnecting) {
+          jobs.processContextQueue();
+          jobs.processTaskExecutorQueue();
+          processCommands();
+        }
       } catch (UncheckedIOException tunneled) {
         throw tunneled.getCause();
       }
@@ -200,10 +214,18 @@ public class Controller {
     var context = new ConnectionContext(this, clientKey);
     clientKey.attach(context);
 
+    // Reroute jobs if needed
+    var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
+    var jobsToReplace = upstreamHostsToreplace.get(remoteAddress);
+    if (jobsToReplace != null) {
+      jobsToReplace.forEach(id -> jobs.swapUpstreamHost(id, clientKey));
+      upstreamHostsToreplace.remove(remoteAddress);
+    }
+
     // Potential management
     context.queuePacket(new InitPacket(potential));
     reevaluatePotential();
-    connectedNodeStream().forEach(ctx -> {
+    availableNodesStream().forEach(ctx -> {
       if (ctx.key() != clientKey) {
         ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
       }
@@ -218,13 +240,13 @@ public class Controller {
   }
 
   /**
-   * Returns a stream of all connected nodes
+   * Returns a stream of all connected nodes that are available (i.e. not disconnecting)
    * @return stream of all connected nodes
    */
-  public Stream<ConnectionContext> connectedNodeStream() {
+  public Stream<ConnectionContext> availableNodesStream() {
     return selector.keys().stream().map(SelectionKey::attachment)
         .mapMulti((a, consumer) -> {
-          if (a instanceof ConnectionContext) { consumer.accept((ConnectionContext) a); }
+          if (a instanceof ConnectionContext ctx && !ctx.isDisconnecting()) { consumer.accept((ConnectionContext) a); }
         });
   }
 
@@ -240,7 +262,7 @@ public class Controller {
    * Reevaluates the total potential of the network
    */
   public void reevaluatePotential() {
-    potential = 1 + connectedNodeStream().reduce(0, (n, ctx) -> n + ctx.potential(), Integer::sum);
+    potential = 1 + availableNodesStream().reduce(0, (n, ctx) -> n + ctx.potential(), Integer::sum);
   }
 
   /**
@@ -249,8 +271,9 @@ public class Controller {
    * @param incomingHost host the update package came from
    */
   public void updateNeighbors(SelectionKey incomingHost) {
+    Objects.requireNonNull(incomingHost);
     reevaluatePotential();
-    connectedNodeStream().forEach(ctx -> {
+    availableNodesStream().forEach(ctx -> {
       if (ctx.key() != incomingHost) {
         ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
       }
@@ -263,6 +286,79 @@ public class Controller {
    * @param context context it came from
    */
   public void transmitPacketToJobs(Packet packet, ConnectionContext context) {
+    Objects.requireNonNull(packet);
+    Objects.requireNonNull(context);
     jobs.queueContextPacket(packet, context);
+  }
+
+  private void broadcastDisconnection() {
+    int nbReco = (int) availableNodesStream().count() - 1;
+    var jobsUpstreamOfParent = jobs.getJobsUpstreamOfNode(parentKey);
+
+    // Send ref packets for parts of jobs it had accepted to do
+    jobs.cancelAllOngoingDownstreamWork();
+
+    // Send disc packet to parent, redi to others
+    availableNodesStream().forEach(ctx -> {
+      if (ctx.key() == parentKey) {
+        var innerDiskPacketSize = jobsUpstreamOfParent.size();
+        var innerDiskPackets = new DiscPacket.InnerDiscPacket[innerDiskPacketSize];
+        for (var i = 0 ; i < innerDiskPacketSize ; i++) {
+          var job = jobsUpstreamOfParent.get(i);
+          innerDiskPackets[i] = new DiscPacket.InnerDiscPacket(job.jobID(), job.getUpstreamContext().host());
+        }
+        ctx.queuePacket(new DiscPacket(nbReco, innerDiskPacketSize, innerDiskPackets));
+      } else {
+        ctx.queuePacket(new RediPacket(parentAddress));
+      }
+    });
+    disconnecting = true;
+    disconnectionCounter = (int) availableNodesStream().count();
+  }
+
+  /**
+   * Processes the reception of an OK_DISC packet from one of the neighbors
+   */
+  public void processOkDisc() {
+    disconnectionCounter--;
+    if (disconnectionCounter == 0) {
+      // Shutdown server
+      selector.keys().forEach(this::silentlyClose);
+      Thread.currentThread().interrupt();
+      System.exit(0);
+    }
+  }
+
+  /**
+   * Does what's necessary to reconnect the network after the disconnecting node has gone
+   * @param disconnectionPacket that was received by the disconnecting node, should be a RediPacket or a
+   *                            DiscPacket
+   */
+  public void reconnect(Packet disconnectionPacket) throws IOException {
+    Objects.requireNonNull(disconnectionPacket);
+    switch (disconnectionPacket) {
+      case DiscPacket discPacket -> {
+        for (var innerDiskPacket : discPacket.jobs()) {
+          upstreamHostsToreplace.computeIfAbsent(innerDiskPacket.new_upstream(), k -> new ArrayList<>())
+              .add(innerDiskPacket.job_id());
+        }
+      }
+      case RediPacket rediPacket -> {
+        // Get local address to reuse it so that this node can be identified properly by the new parent
+        var oldAddress = parentSocketChannel.getLocalAddress();
+        parentSocketChannel = SocketChannel.open();
+        parentSocketChannel.bind(oldAddress);
+        parentSocketChannel.configureBlocking(false);
+        var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
+        key.attach(new ConnectionContext(this, key));
+        parentSocketChannel.connect(rediPacket.new_parent());
+
+        jobs.swapUpstreamHost(parentKey, key);
+        parentKey = key;
+        parentAddress = rediPacket.new_parent();
+        logger.info("Connecting to new parent...");
+      }
+      default -> throw new IllegalArgumentException();
+    }
   }
 }

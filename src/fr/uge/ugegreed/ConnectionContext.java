@@ -12,7 +12,7 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-public class ConnectionContext {
+public final class ConnectionContext {
   private final static Logger logger = Logger.getLogger(ConnectionContext.class.getName());
   private final static int BUFFER_SIZE = 10_000;
 
@@ -22,11 +22,11 @@ public class ConnectionContext {
   private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
   private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
   private final Controller controller;
+  private boolean disconnecting = false;
+  private Packet disconnectingPacket;
   private boolean closed = false;
   private final PacketReader packetReader = new PacketReader();
-
   private final ArrayDeque<Packet> queue = new ArrayDeque<>();
-
   private int potential = 1;
 
   public ConnectionContext(Controller controller, SelectionKey key) throws IOException {
@@ -58,6 +58,15 @@ public class ConnectionContext {
    */
   public InetSocketAddress host() {
     return remoteHost;
+  }
+
+  /**
+   * Returns if the node on the other side is in the process of disconnecting or not
+   * @return if the node on the other side is in the process of disconnecting or not
+   */
+  public boolean isDisconnecting() {
+    //return disconnectionStatus.isDisconnecting();
+    return disconnecting;
   }
 
   /**
@@ -103,6 +112,19 @@ public class ConnectionContext {
       case ReqPacket reqPacket -> controller.transmitPacketToJobs(reqPacket, this);
       case AccPacket accPacket -> controller.transmitPacketToJobs(accPacket, this);
       case RefPacket refPacket -> controller.transmitPacketToJobs(refPacket, this);
+      case DiscPacket discPacket -> {
+        disconnecting = true;
+        queuePacket(new OkDiscPacket());
+        controller.updateNeighbors(key);
+        disconnectingPacket = discPacket;
+      }
+      case RediPacket rediPacket -> {
+        disconnecting = true;
+        queuePacket(new OkDiscPacket());
+        controller.updateNeighbors(key);
+        disconnectingPacket = rediPacket;
+      }
+      case OkDiscPacket ignored -> controller.processOkDisc();
 
       default -> logger.warning("Unmanaged packet type: " + packet);
     }
@@ -158,12 +180,17 @@ public class ConnectionContext {
    * The convention is that both buffers are in write-mode before the call to
    * doRead and after the call
    *
-   * @throws IOException
+   * @throws IOException in case of issues with the socket
    */
   public void doRead() throws IOException {
     var bytesRead = sc.read(bufferIn);
     if (bytesRead == -1) {
       closed = true;
+      if (disconnecting) {
+        controller.reconnect(disconnectingPacket);
+        silentlyClose();
+        return;
+      }
     }
     processIn();
     updateInterestOps();
@@ -174,7 +201,7 @@ public class ConnectionContext {
    * The convention is that both buffers are in write-mode before the call to
    * doWrite and after the call
    *
-   * @throws IOException
+   * @throws IOException in case of issues with the socket
    */
 
   public void doWrite() throws IOException {
@@ -189,6 +216,7 @@ public class ConnectionContext {
     if (!sc.finishConnect()) return;
     key.interestOps(SelectionKey.OP_READ);
     remoteHost = (InetSocketAddress) sc.getRemoteAddress();
+    queuePacket(new UpdtPacket(controller.potential()));
     logger.info("Connected to " + remoteHost);
   }
 

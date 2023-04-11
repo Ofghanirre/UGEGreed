@@ -72,17 +72,25 @@ public final class UpstreamJob implements Job {
         var localPotential = 1;
         var cursor = start;
 
-        logger.info("Taking range " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
+        logger.info("Scheduling " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
         executor.addJob(checker.get(), jobID, cursor, cursor + sizeOfSlices * localPotential);
+        cursor += sizeOfSlices * localPotential;
 
-        var hosts = controller.connectedNodeStream().toList();
+        var hosts = controller.availableNodesStream().toList();
         for (var context : hosts) {
-            cursor += sizeOfSlices * localPotential;
             if (cursor >= end) { break; }
             localPotential = context.potential();
             context.queuePacket(
                 new ReqPacket(jobID, jarURL, className, cursor, Long.min(cursor + sizeOfSlices * localPotential, end))
             );
+            cursor += sizeOfSlices * localPotential;
+        }
+
+        // If for some reason there are remaining numbers, the node takes them
+        if (cursor < end) {
+            logger.warning("Numbers " + cursor + " to " + end + " for job " + jobID +
+                " were not distributed, scheduling them locally...");
+            executor.addJob(checker.get(), jobID, cursor, end);
         }
 
         jobRunning = true;
@@ -95,31 +103,40 @@ public final class UpstreamJob implements Job {
     }
 
     @Override
-    public void handlePacket(Packet packet) throws IOException {
-        if (!jobRunning) { return; }
-        switch (packet) {
+    public boolean handlePacket(Packet packet) throws IOException {
+        if (!jobRunning) { return true; }
+        return switch (packet) {
             case AnsPacket ansPacket -> handleAnswer(ansPacket);
             case AccPacket accPacket -> handleAccept(accPacket);
             case RefPacket refPacket -> handleRefuse(refPacket);
             default -> throw new AssertionError();
-        }
+        };
     }
 
-    private void handleRefuse(RefPacket refPacket) {
+    @Override
+    public long jobID() {
+        return jobID;
+    }
+
+    private boolean handleRefuse(RefPacket refPacket) {
         // Takes job for himself
 
         // TODO: replace this as well...
         var checker = CheckerRetriever.checkerFromHTTP(jarURL, className);
         if (checker.isEmpty()) { throw new AssertionError(); }
 
+        logger.info("Received refusal for range " + refPacket.range_start() + " to "
+            + refPacket.range_end() + ", rescheduling locally...");
         executor.addJob(checker.get(), jobID, refPacket.range_start(), refPacket.range_end());
+        return true;
     }
 
-    private void handleAccept(AccPacket accPacket) {
+    private boolean handleAccept(AccPacket ignored) {
         // Do nothing
+        return true;
     }
 
-    private void handleAnswer(AnsPacket ansPacket) throws IOException {
+    private boolean handleAnswer(AnsPacket ansPacket) throws IOException {
         output.write(ansPacket.result());
         output.newLine();
         counter++;
@@ -128,5 +145,6 @@ public final class UpstreamJob implements Job {
             logger.info("Job " + jobID + " finished.");
             end();
         }
+        return true;
     }
 }

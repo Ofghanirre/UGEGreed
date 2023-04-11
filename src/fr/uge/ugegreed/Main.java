@@ -10,7 +10,7 @@ import java.util.logging.Logger;
 /**
  * Entry point for the UGE Greed application
  */
-public class Main {
+public final class Main {
   private static final Logger logger = Logger.getLogger(Main.class.getSimpleName());
   private static int errorLogged;
   private static void usage() {

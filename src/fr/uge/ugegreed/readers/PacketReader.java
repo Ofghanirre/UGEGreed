@@ -3,7 +3,6 @@ package fr.uge.ugegreed.readers;
 import fr.uge.ugegreed.packets.OkDiscPacket;
 import fr.uge.ugegreed.packets.Packet;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
@@ -19,7 +18,7 @@ public class PacketReader implements Reader<Packet> {
   private Packet.PacketCode packetType;
   private Packet value;
 
-  private Map<Packet.PacketCode, Reader<? extends Packet>> readers = Map.ofEntries(
+  private final Map<Packet.PacketCode, Reader<? extends Packet>> readers = Map.ofEntries(
       Map.entry(Packet.PacketCode.INIT, BasePacketReader.initPacketReader()),
       Map.entry(Packet.PacketCode.UPDT, BasePacketReader.updtPacketReader()),
       Map.entry(Packet.PacketCode.REQ, BasePacketReader.reqPacketReader()),
@@ -30,14 +29,14 @@ public class PacketReader implements Reader<Packet> {
       Map.entry(Packet.PacketCode.DISC, new DiscPacketReader())
   );
 
-  private Reader<Byte> byteReader = BaseReader.byteReader();
+  private final Reader<Byte> byteReader = BaseReader.byteReader();
 
   @Override
   public ProcessStatus process(ByteBuffer byteBuffer) {
     if (state == State.DONE || state == State.ERROR) {
       throw new IllegalStateException();
     }
-   while (state != State.DONE && state != State.ERROR) {
+   while (state != State.DONE) {
      switch (state) {
        case WAITING_BYTE -> {
          var result = byteReader.process(byteBuffer);
@@ -90,33 +89,10 @@ public class PacketReader implements Reader<Packet> {
   @Override
   public void reset() {
     byteReader.reset();
-    readers.get(packetType).reset();
+    var reader = readers.get(packetType);
+
+    // Necessary since some packets (OK_DISC) have no reader for them
+    if (reader != null) { reader.reset(); }
     state = State.WAITING_BYTE;
-  }
-
-  public static void main(String[] args) {
-//    var buffer = ByteBuffer.allocate(1 + 8 + 28)
-//        .put((byte) 8)
-//        .putInt(34)
-//        .putInt(2)
-//        .putLong(69).put(TypeToByteWriter.getHost(new InetSocketAddress("255.0.0.1", 1)))
-//        .putLong(420).put(TypeToByteWriter.getHost(new InetSocketAddress("127.0.0.3", 65535)));
-
-    var url = StandardCharsets.US_ASCII.encode("hello.com");
-    var className = StandardCharsets.UTF_8.encode("Main");
-    var buffer = ByteBuffer.allocate(1 + Long.BYTES * 3 + Integer.BYTES * 2 +
-            url.remaining() + className.remaining())
-        .put((byte) 3)
-        .putLong(1)
-        .putInt(url.remaining())
-        .put(url)
-        .putInt(className.remaining())
-        .put(className)
-        .putLong(1)
-        .putLong(1337);
-
-    var reader = new PacketReader();
-    var result = reader.process(buffer);
-    System.out.println(reader.get());
   }
 }

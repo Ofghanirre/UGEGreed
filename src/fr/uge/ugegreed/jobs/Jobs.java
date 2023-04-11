@@ -6,12 +6,10 @@ import fr.uge.ugegreed.TaskExecutor;
 import fr.uge.ugegreed.packets.*;
 
 import java.io.IOException;
+import java.nio.channels.SelectionKey;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Logger;
 import java.util.random.RandomGenerator;
@@ -19,7 +17,7 @@ import java.util.random.RandomGenerator;
 /**
  * Manages all aspects of the application relates to jobs
  */
-public class Jobs {
+public final class Jobs {
 
     private static final Logger logger = Logger.getLogger(Jobs.class.getName());
     private static final int TASK_EXECUTOR_MAX_READING_AMOUNT = 128;
@@ -94,14 +92,14 @@ public class Jobs {
         return jobID;
     }
 
-    private void sendPacketToJob(Packet packet, long job_id) throws IOException {
+    private boolean sendPacketToJob(Packet packet, long job_id) throws IOException {
         var job = jobs.get(job_id);
         //logger.info(packet.toString());
         if (job == null) {
             logger.warning("Invalid Job_id given " + job_id);
-            return;
+            return true;
         }
-        job.handlePacket(packet);
+        return job.handlePacket(packet);
     }
 
     /**
@@ -117,27 +115,32 @@ public class Jobs {
      * Processes the queue for packets that came from other nodes
      */
     public void processContextQueue() throws IOException {
-        while (!contextQueue.isEmpty()) {
+        var numberOfPackets = contextQueue.size();
+        for (var i = 0 ; i < numberOfPackets ; i++) {
             ContextPacket contextPacket = contextQueue.remove();
-            switch (contextPacket.packet()) {
+            var used = switch (contextPacket.packet()) {
                 case AnsPacket ansPacket -> sendPacketToJob(ansPacket, ansPacket.job_id());
                 case AccPacket accPacket -> sendPacketToJob(accPacket, accPacket.job_id());
                 case RefPacket refPacket -> sendPacketToJob(refPacket, refPacket.job_id());
                 case ReqPacket reqPacket -> processReqPacket(reqPacket, contextPacket.context());
-                default -> throw new AssertionError("unhandled Packet tested");
+                default -> throw new AssertionError("unhandled packet tested");
+            };
+            if (!used) {
+                contextQueue.add(contextPacket);
             }
         }
     }
 
-    private void processReqPacket(ReqPacket reqPacket, ConnectionContext context) {
+    private boolean processReqPacket(ReqPacket reqPacket, ConnectionContext context) {
         var job = new DownstreamJob(context, reqPacket, taskExecutor, controller);
         if (!job.startJob()) {
             logger.warning("Could not start job based on " + reqPacket);
             context.queuePacket(new RefPacket(reqPacket.job_id(), reqPacket.range_start(), reqPacket.range_end()));
-            return;
+            return true;
         }
 
         jobs.put(reqPacket.job_id(), job);
+        return true;
     }
 
     /**
@@ -149,5 +152,76 @@ public class Jobs {
             if (packet == null) break;
             sendPacketToJob(packet, packet.job_id());
         }
+    }
+
+    /**
+     * Returns the list of jobs which are upstream of the given node
+     * @param node node
+     * @return list of jobs which are upstream of the given node
+     */
+    public List<DownstreamJob> getJobsUpstreamOfNode(SelectionKey node) {
+        Objects.requireNonNull(node);
+        return jobs.values().stream().<DownstreamJob>mapMulti((job, consumer) -> {
+            switch (job) {
+                case UpstreamJob ignored -> {}
+                case DownstreamJob downstreamJob -> {
+                    if (downstreamJob.getUpstreamContext().key() != node) {
+                        consumer.accept(downstreamJob);
+                    }
+                }
+                default -> throw new AssertionError();
+            }
+        }).toList();
+    }
+
+    /**
+     * Swaps the upstream host of downstream jobs for a new one.
+     * @param previous previous host
+     * @param swap new host
+     */
+    public void swapUpstreamHost(SelectionKey previous, SelectionKey swap) {
+        Objects.requireNonNull(previous);
+        Objects.requireNonNull(swap);
+        jobs.forEach((k, job) -> {
+            switch (job) {
+                case UpstreamJob ignored -> {}
+                case DownstreamJob downstreamJob -> {
+                    if (downstreamJob.getUpstreamContext().key() == previous) {
+                        downstreamJob.setUpstreamContext((ConnectionContext) swap.attachment());
+                    }
+                }
+                default -> throw new AssertionError();
+            }
+        });
+    }
+
+    /**
+     * Swaps the upstream host of a certain job for a new one.
+     * @param jobID job that must be updated
+     * @param swap new host
+     */
+    public void swapUpstreamHost(long jobID, SelectionKey swap) {
+        var job = jobs.get(jobID);
+        if (job != null) {
+            switch (job) {
+                case DownstreamJob downstreamJob -> downstreamJob.setUpstreamContext((ConnectionContext) swap.attachment());
+                case UpstreamJob ignored -> logger.warning("Trying to change upstream host of a job that is already upstream");
+                default -> throw new AssertionError();
+            }
+        }
+    }
+
+    /**
+     * Sends ref packets to every upstream node for work that this node took on
+     * but did not complete
+     */
+    public void cancelAllOngoingDownstreamWork() {
+        jobs.forEach((k, job) -> {
+            switch (job) {
+                case UpstreamJob ignored -> {}
+                case DownstreamJob downstreamJob -> downstreamJob.cancelOngoingWork();
+                default -> throw new AssertionError();
+            }
+        });
     }
 }
