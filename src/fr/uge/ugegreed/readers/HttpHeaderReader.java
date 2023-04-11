@@ -22,21 +22,25 @@ public class HttpHeaderReader implements Reader<HttpHeader> {
         if (state == State.DONE) {
             throw new IllegalStateException("Trying to process on an already DONE job, please reset the reader.");
         }
-        buffer.flip();
-        while (buffer.hasRemaining()) {
-            if (lineReader.process(buffer) == ProcessStatus.DONE) {
-                var line = lineReader.get();
-                if (line.equals("")) {
-                    gotEndLine = true;
-                    break;
+        while (buffer.hasRemaining() && state != State.DONE) {
+            var status = lineReader.process(buffer);
+            switch (status) {
+                case DONE -> {
+                    var line = lineReader.get();
+                    System.err.println("LINE GOT: " + line);
+                    if (line.equals("")) {
+                        state = State.DONE;
+                        break;
+                    }
+                    resultlines.add(line);
+                    lineReader.reset();
                 }
-                resultlines.add(line);
+                case REFILL -> {
+                    return ProcessStatus.REFILL;
+                }
+                case ERROR -> throw new AssertionError();
             }
         }
-        buffer.compact();
-
-        if (!gotEndLine) return ProcessStatus.REFILL;
-        state = State.DONE;
         return ProcessStatus.DONE;
     }
 
