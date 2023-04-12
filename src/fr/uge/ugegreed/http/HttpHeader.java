@@ -24,7 +24,7 @@ public class HttpHeader {
     private final int code;
     private final Map<String, String> fields;
 
-    private HttpHeader(String response, String version, int code, Map<String, String> fields) throws HttpException {
+    private HttpHeader(String response, String version, int code, Map<String, String> fields) {
         this.response = response;
         this.version = version;
         this.code = code;
@@ -127,5 +127,18 @@ public class HttpHeader {
 
     public String toString() {
         return response + "\n" + version + " " + code + "\n" + fields.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        HttpHeader that = (HttpHeader) o;
+        return code == that.code && Objects.equals(response, that.response) && Objects.equals(version, that.version) && Objects.equals(fields, that.fields);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(response, version, code, fields);
     }
 }

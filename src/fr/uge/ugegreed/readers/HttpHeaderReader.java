@@ -13,16 +13,22 @@ public class HttpHeaderReader implements Reader<HttpHeader> {
         DONE, WAITING
     }
     private final List<String> resultlines = new ArrayList<>();
-    private boolean gotEndLine = false;
     private State state = State.WAITING;
     private final HttpHeaderLineReader lineReader = new HttpHeaderLineReader();
 
+    /**
+     * Process a ByteBuffer flow as an HttpResponse and parse its header line per line using the
+     * HttpHeaderLineReader
+     *
+     * @param buffer in write mode
+     * @return
+     */
     @Override
     public ProcessStatus process(ByteBuffer buffer) {
         if (state == State.DONE) {
             throw new IllegalStateException("Trying to process on an already DONE job, please reset the reader.");
         }
-        while (buffer.hasRemaining() && state != State.DONE) {
+        while (state != State.DONE) {
             var status = lineReader.process(buffer);
             switch (status) {
                 case DONE -> {
@@ -68,6 +74,6 @@ public class HttpHeaderReader implements Reader<HttpHeader> {
     public void reset() {
         state = State.WAITING;
         resultlines.clear();
-        gotEndLine = false;
+        lineReader.reset();
     }
 }
