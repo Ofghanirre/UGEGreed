@@ -66,7 +66,7 @@ public final class DownstreamJob implements Job {
 
     @Override
     public void jarDownloadSuccess(Path jarPath) {
-        var tryChecker = CheckerRetriever.checkerFromDisk(jarPath, className, true);
+        var tryChecker = CheckerRetriever.checkerFromDisk(jarPath, className, false);
         if (tryChecker.isEmpty()) {
             logger.warning("Could not load checker from jar " + jarURL);
             upstreamHost.queuePacket(new RefPacket(jobID, start, end));

@@ -52,14 +52,14 @@ public final class Console {
   }
 
   private boolean sendStartCommand(String[] splitLine) throws InterruptedException {
-    if (splitLine.length != 6) {
+    if (splitLine.length != 7) {
       return false;
     }
     try {
       var start = Integer.parseInt(splitLine[3]);
       var end = Integer.parseInt(splitLine[4]);
       if (end < start) { return false; }
-      controller.sendCommand(new CommandStart(splitLine[1], splitLine[2], start, end, splitLine[5]));
+      controller.sendCommand(new CommandStart(splitLine[1], splitLine[2], start, end, splitLine[5], Boolean.valueOf(splitLine[6])));
       return true;
     } catch (NumberFormatException e) {
       return false;

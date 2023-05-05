@@ -102,7 +102,7 @@ public final class Controller {
   }
 
   private void processStartCommand(CommandStart command) throws IOException {
-    var result = jobs.createJob(command.urlJAR(), command.className(), command.rangeStart(), command.rangeEnd(), command.filename());
+    var result = jobs.createJob(command.urlJAR(), command.className(), command.rangeStart(), command.rangeEnd(), command.filename(), command.useCache());
     if (!result) {
       logger.info("Job could not be started");
     }
@@ -133,7 +133,7 @@ public final class Controller {
     List<Command> commands = List.of(
             new CommandHelp(),
             new CommandDebug(CommandDebugCode.POTENTIAL),
-            new CommandStart("dummy", "dummy", 1, 2, "dummy"),
+            new CommandStart("dummy", "dummy", 1, 2, "dummy", false),
             new CommandDisconnect()
     );
     System.out.println("Commands (" + commands.size() + ")");

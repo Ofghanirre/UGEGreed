@@ -27,6 +27,7 @@ public final class UpstreamJob implements Job {
     private boolean jobRunning = false;
     private long counter;
     private Checker checker;
+    private final boolean useCache;
 
     /**
      * Creates a new upstream job
@@ -39,7 +40,7 @@ public final class UpstreamJob implements Job {
      * @param executor taskExecutor this job must use
      */
     public UpstreamJob(long jobID, String jarURL, String className, long start, long end, Path outputFilePath,
-                       TaskExecutor executor, Controller controller) {
+                       TaskExecutor executor, Controller controller, boolean useCache) {
         if (jobID < 0) {
             throw new IllegalArgumentException("jobID must be positive");
         }
@@ -54,6 +55,7 @@ public final class UpstreamJob implements Job {
         this.outputPath = Objects.requireNonNull(outputFilePath);
         this.executor = Objects.requireNonNull(executor);
         this.controller = Objects.requireNonNull(controller);
+        this.useCache = useCache;
     }
 
     public void prepareJob() throws IOException {
@@ -67,7 +69,7 @@ public final class UpstreamJob implements Job {
 
     @Override
     public void jarDownloadSuccess(Path jarPath) {
-        var tryChecker = CheckerRetriever.checkerFromDisk(jarPath, className, true);
+        var tryChecker = CheckerRetriever.checkerFromDisk(jarPath, className, this.useCache);
         if (tryChecker.isEmpty()) {
             logger.warning("Could not load checker from jar " + jarURL);
             return;
