@@ -10,7 +10,7 @@ import java.util.Objects;
  * @param rangeEnd number to end at (excluded)
  * @param filename name of the file where to store the results
  */
-public record CommandStart(String urlJAR, String className, long rangeStart, long rangeEnd, String filename, Boolean useCache) implements Command {
+public record CommandStart(String urlJAR, String className, long rangeStart, long rangeEnd, String filename) implements Command {
   public CommandStart {
     Objects.requireNonNull(urlJAR);
     Objects.requireNonNull(className);
@@ -38,7 +38,6 @@ public record CommandStart(String urlJAR, String className, long rangeStart, lon
                     new CommandHelpData.Argument("start-range", "the first value to test"),
                     new CommandHelpData.Argument("end-range", "the last value to test"),
                     new CommandHelpData.Argument("filename ", "the name of the output file to store result in"),
-                    new CommandHelpData.Argument("use-cache", "wether or not to use cached file if they exists for the url-jar")
             }, "Start the checking of a given conjecture");
   }
 

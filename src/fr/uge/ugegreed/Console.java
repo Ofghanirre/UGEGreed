@@ -33,11 +33,12 @@ public final class Console {
         var line = scan.nextLine();
         var splitLine = line.split(" +");
         if (splitLine.length == 0) continue;
-        var result = switch (splitLine[0].toUpperCase(Locale.ROOT)) {
+        boolean result = switch (splitLine[0].toUpperCase(Locale.ROOT)) {
           case "START" -> sendStartCommand(splitLine);
           case "DISCONNECT" -> sendDisconnectCommand();
           case "DEBUG" -> sendDebugCommand(splitLine);
           case "HELP" -> sendHelpCommand();
+          case "CACHE" -> sendCacheCommand(splitLine);
           default -> false;
         };
         if (!result) {
@@ -51,15 +52,23 @@ public final class Console {
     }
   }
 
+  private boolean sendCacheCommand(String[] splitLine) throws  InterruptedException {
+    if (splitLine.length != 2) {
+      return false;
+    }
+    controller.sendCommand(new CommandCache(Boolean.parseBoolean(splitLine[1])));
+    return true;
+  }
+
   private boolean sendStartCommand(String[] splitLine) throws InterruptedException {
-    if (splitLine.length != 7) {
+    if (splitLine.length != 6) {
       return false;
     }
     try {
       var start = Integer.parseInt(splitLine[3]);
       var end = Integer.parseInt(splitLine[4]);
       if (end < start) { return false; }
-      controller.sendCommand(new CommandStart(splitLine[1], splitLine[2], start, end, splitLine[5], Boolean.valueOf(splitLine[6])));
+      controller.sendCommand(new CommandStart(splitLine[1], splitLine[2], start, end, splitLine[5]));
       return true;
     } catch (NumberFormatException e) {
       return false;

@@ -62,7 +62,7 @@ public final class Jobs {
      * @param fileName name of the file in which to store the results
      * @return true if the job is valid, false else
      */
-    public boolean createJob(String jarURL, String mainClass, long start, long end, String fileName, boolean useCache) throws IOException {
+    public boolean createJob(String jarURL, String mainClass, long start, long end, String fileName) throws IOException {
         checkJobParameters(jarURL, mainClass, start, end, fileName);
         long jobID = generateJobID();
 
@@ -72,7 +72,7 @@ public final class Jobs {
         } catch (InvalidPathException e) {
             return false;
         }
-        var job = new UpstreamJob(jobID, jarURL, mainClass, start, end, fullPath, taskExecutor, controller, useCache);
+        var job = new UpstreamJob(jobID, jarURL, mainClass, start, end, fullPath, taskExecutor, controller);
 
         job.prepareJob();
         jobs.put(jobID, job);

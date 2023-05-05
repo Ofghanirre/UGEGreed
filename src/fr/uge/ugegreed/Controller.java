@@ -48,6 +48,8 @@ public final class Controller {
   private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
 
+  private boolean useCache = false;
+
   /**
    * Creates a new controller
    * @param listenPort port to listen for new connections on
@@ -95,6 +97,7 @@ public final class Controller {
           case CommandDisconnect ignored -> processDisconnectCommand();
           case CommandDebug commandDebug -> processDebugCommand(commandDebug);
           case CommandHelp ignored -> processHelpCommand();
+          case CommandCache commandCache -> processCacheCommand(commandCache);
           default -> throw new UnsupportedOperationException("Unknown command: " + command);
         }
       }
@@ -102,7 +105,7 @@ public final class Controller {
   }
 
   private void processStartCommand(CommandStart command) throws IOException {
-    var result = jobs.createJob(command.urlJAR(), command.className(), command.rangeStart(), command.rangeEnd(), command.filename(), command.useCache());
+    var result = jobs.createJob(command.urlJAR(), command.className(), command.rangeStart(), command.rangeEnd(), command.filename());
     if (!result) {
       logger.info("Job could not be started");
     }
@@ -128,13 +131,19 @@ public final class Controller {
     }
   }
 
+  private void processCacheCommand(CommandCache commandCache) {
+    logger.info("Set useCache value to " + commandCache.useCache());
+    this.useCache = commandCache.useCache();
+  }
+
   private void processHelpCommand() {
     System.out.println("Console Help:");
     List<Command> commands = List.of(
             new CommandHelp(),
             new CommandDebug(CommandDebugCode.POTENTIAL),
-            new CommandStart("dummy", "dummy", 1, 2, "dummy", false),
-            new CommandDisconnect()
+            new CommandStart("dummy", "dummy", 1, 2, "dummy"),
+            new CommandDisconnect(),
+            new CommandCache(false)
     );
     System.out.println("Commands (" + commands.size() + ")");
     System.out.println(commands.stream().map(Command::getName).collect(Collectors.joining(" - ")) + "\n");
@@ -389,5 +398,9 @@ public final class Controller {
       logger.warning(jarURL + " is an invalid URL");
       job.jarDownloadFail();
     }
+  }
+
+  public boolean useCache() {
+    return this.useCache;
   }
 }
