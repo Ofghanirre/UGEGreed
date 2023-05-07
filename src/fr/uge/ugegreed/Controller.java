@@ -45,7 +45,7 @@ public final class Controller {
   // Related to disconnection
   private boolean disconnecting = false;
   private int disconnectionCounter;
-  private final HashMap<Integer, ArrayList<Long>> upstreamHostsToreplace = new HashMap<>();
+  private final HashMap<Integer, ArrayList<Long>> upstreamHostsToReplace = new HashMap<>();
 
   private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
@@ -261,13 +261,13 @@ public final class Controller {
    * @param context context to switch the job to
    */
   public void rerouteJobs(int appID, ConnectionContext context) {
-    var jobsToReplace = upstreamHostsToreplace.get(appID);
+    var jobsToReplace = upstreamHostsToReplace.get(appID);
     if (jobsToReplace != null) {
       jobsToReplace.forEach(id -> {
         jobs.swapUpstreamHost(id, context);
         logger.info("Rerouted job " + id + " to app " + appID);
       });
-      upstreamHostsToreplace.remove(appID);
+      upstreamHostsToReplace.remove(appID);
     }
   }
 
@@ -381,15 +381,12 @@ public final class Controller {
     switch (disconnectionPacket) {
       case DiscPacket discPacket -> {
         for (var innerDiskPacket : discPacket.jobs()) {
-          upstreamHostsToreplace.computeIfAbsent(innerDiskPacket.new_upstream(), k -> new ArrayList<>())
+          upstreamHostsToReplace.computeIfAbsent(innerDiskPacket.new_upstream(), k -> new ArrayList<>())
               .add(innerDiskPacket.job_id());
         }
       }
       case RediPacket rediPacket -> {
-        // Get local address to reuse it so that this node can be identified properly by the new parent
-        var oldAddress = parentSocketChannel.getLocalAddress();
         parentSocketChannel = SocketChannel.open();
-        parentSocketChannel.bind(oldAddress);
         parentSocketChannel.configureBlocking(false);
         var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
         key.attach(new ConnectionContext(this, key, true));
