@@ -81,23 +81,25 @@ public final class BasePacketReader<T> implements Reader<T> {
   // what types each get() call will return
   @SuppressWarnings("unchecked")
   public static Reader<InitPacket> initPacketReader() {
-    return new BasePacketReader<>(List.of(BaseReader.intReader()), readers -> {
+    return new BasePacketReader<>(List.of(BaseReader.intReader(), BaseReader.intReader()), readers -> {
       int value = ((Reader<Integer>) readers.get(0)).get();
+      int appID = ((Reader<Integer>) readers.get(1)).get();
       if (value < 0) {
         return Optional.empty();
       }
-      return Optional.of(new InitPacket(value));
+      return Optional.of(new InitPacket(value, appID));
     });
   }
 
   @SuppressWarnings("unchecked")
   public static Reader<UpdtPacket> updtPacketReader() {
-    return new BasePacketReader<>(List.of(BaseReader.intReader()), readers -> {
+    return new BasePacketReader<>(List.of(BaseReader.intReader(),BaseReader.intReader()), readers -> {
       int value = ((Reader<Integer>) readers.get(0)).get();
+      int appID = ((Reader<Integer>) readers.get(1)).get();
       if (value < 0) {
         return Optional.empty();
       }
-      return Optional.of(new UpdtPacket(value));
+      return Optional.of(new UpdtPacket(value, appID));
     });
   }
 

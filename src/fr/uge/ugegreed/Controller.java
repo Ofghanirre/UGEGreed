@@ -40,6 +40,8 @@ public final class Controller {
   private final Jobs jobs;
   private int potential = 1;
 
+  private final int appID;
+
   // Related to disconnection
   private boolean disconnecting = false;
   private int disconnectionCounter;
@@ -67,12 +69,15 @@ public final class Controller {
     Files.createDirectories(jarPath);
 
     this.listenPort = listenPort;
-    this.selector = Selector.open();
+    selector = Selector.open();
     jobs = new Jobs(resultPath, this);
     this.parentAddress = parentAddress;
-    this.serverSocketChannel = ServerSocketChannel.open();
+    serverSocketChannel = ServerSocketChannel.open();
     serverSocketChannel.bind(new InetSocketAddress(listenPort));
-    this.parentSocketChannel = SocketChannel.open();
+
+    parentSocketChannel = SocketChannel.open();
+
+    appID = serverSocketChannel.getLocalAddress().hashCode();
   }
 
   /**
@@ -126,7 +131,7 @@ public final class Controller {
         System.out.println("Neighboring potentials:");
         availableNodesStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
       }
-      // Code other debug codes here!
+      case ID -> System.out.println("App ID: " + appID);
       default -> System.out.println("Unknown debug code: " + command.debugCode());
     }
   }
@@ -237,11 +242,11 @@ public final class Controller {
     }
 
     // Potential management
-    context.queuePacket(new InitPacket(potential));
+    context.queuePacket(new InitPacket(potential, appID));
     reevaluatePotential();
     availableNodesStream().forEach(ctx -> {
       if (ctx.key() != clientKey) {
-        ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
+        ctx.queuePacket(new UpdtPacket(potential - ctx.potential(), appID));
       }
     });
   }
@@ -273,6 +278,12 @@ public final class Controller {
   }
 
   /**
+   * Returns appID of the app
+   * @return appID of the app
+   */
+  public int appID() { return appID; }
+
+  /**
    * Reevaluates the total potential of the network
    */
   public void reevaluatePotential() {
@@ -289,7 +300,7 @@ public final class Controller {
     reevaluatePotential();
     availableNodesStream().forEach(ctx -> {
       if (ctx.key() != incomingHost) {
-        ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
+        ctx.queuePacket(new UpdtPacket(potential - ctx.potential(), appID));
       }
     });
   }

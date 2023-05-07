@@ -3,7 +3,7 @@ package fr.uge.ugegreed.commands;
 import java.util.Optional;
 
 public enum CommandDebugCode {
-    POTENTIAL(1);
+    POTENTIAL(1), ID(2);
 
     private final int intValue;
 

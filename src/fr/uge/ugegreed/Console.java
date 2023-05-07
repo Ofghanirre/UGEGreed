@@ -52,7 +52,7 @@ public final class Console {
     }
   }
 
-  private boolean sendCacheCommand(String[] splitLine) throws  InterruptedException {
+  private boolean sendCacheCommand(String[] splitLine) throws InterruptedException {
     if (splitLine.length != 2) {
       return false;
     }

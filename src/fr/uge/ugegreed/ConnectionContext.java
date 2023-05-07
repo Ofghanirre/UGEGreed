@@ -19,6 +19,7 @@ public final class ConnectionContext implements Context {
   private final SelectionKey key;
   private final SocketChannel sc;
   private InetSocketAddress remoteHost;
+  private int remoteAppID;
   private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
   private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
   private final Controller controller;
@@ -103,11 +104,13 @@ public final class ConnectionContext implements Context {
     switch (packet) {
       case InitPacket initPacket -> {
         potential = initPacket.potential();
-        controller.reevaluatePotential();
+        controller.updateNeighbors(key);
+        // updt app id
       }
       case UpdtPacket updtPacket -> {
         potential = updtPacket.potential();
         controller.updateNeighbors(key);
+        // updt app id
       }
       case AnsPacket ansPacket -> controller.transmitPacketToJobs(ansPacket);
       case ReqPacket reqPacket -> controller.processRequestPacket(reqPacket, this);
@@ -219,7 +222,7 @@ public final class ConnectionContext implements Context {
     connectionComplete = true;
     key.interestOps(SelectionKey.OP_READ);
     remoteHost = (InetSocketAddress) sc.getRemoteAddress();
-    queuePacket(new UpdtPacket(controller.potential()));
+    queuePacket(new UpdtPacket(controller.potential(), controller.appID()));
     logger.info("Connected to " + remoteHost);
   }
 
