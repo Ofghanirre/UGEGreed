@@ -18,6 +18,7 @@ public final class DownstreamJob implements Job {
         private WorkRange(long start, long end) {
             this.start = start;
             this.end = end;
+            lastSent = start - 1;
         }
 
         private void updateLastSent(long lastSent) {
