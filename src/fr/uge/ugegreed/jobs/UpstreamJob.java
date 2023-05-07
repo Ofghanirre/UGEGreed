@@ -27,7 +27,6 @@ public final class UpstreamJob implements Job {
     private boolean jobRunning = false;
     private long counter;
     private Checker checker;
-
     /**
      * Creates a new upstream job
      * @param jobID id of the job
@@ -67,7 +66,7 @@ public final class UpstreamJob implements Job {
 
     @Override
     public void jarDownloadSuccess(Path jarPath) {
-        var tryChecker = CheckerRetriever.checkerFromDisk(jarPath, className);
+        var tryChecker = CheckerRetriever.checkerFromDisk(jarPath, className, controller.useCache());
         if (tryChecker.isEmpty()) {
             logger.warning("Could not load checker from jar " + jarURL);
             return;

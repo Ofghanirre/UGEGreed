@@ -33,11 +33,12 @@ public final class Console {
         var line = scan.nextLine();
         var splitLine = line.split(" +");
         if (splitLine.length == 0) continue;
-        var result = switch (splitLine[0].toUpperCase(Locale.ROOT)) {
+        boolean result = switch (splitLine[0].toUpperCase(Locale.ROOT)) {
           case "START" -> sendStartCommand(splitLine);
           case "DISCONNECT" -> sendDisconnectCommand();
           case "DEBUG" -> sendDebugCommand(splitLine);
           case "HELP" -> sendHelpCommand();
+          case "CACHE" -> sendCacheCommand(splitLine);
           default -> false;
         };
         if (!result) {
@@ -49,6 +50,14 @@ public final class Console {
     } finally {
       logger.info("Console thread stopping");
     }
+  }
+
+  private boolean sendCacheCommand(String[] splitLine) throws  InterruptedException {
+    if (splitLine.length != 2) {
+      return false;
+    }
+    controller.sendCommand(new CommandCache(Boolean.parseBoolean(splitLine[1])));
+    return true;
   }
 
   private boolean sendStartCommand(String[] splitLine) throws InterruptedException {
