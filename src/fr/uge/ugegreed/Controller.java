@@ -77,6 +77,7 @@ public final class Controller {
 
     parentSocketChannel = SocketChannel.open();
 
+    // Insufficient if the network is deployed over multiple machines, but works in local...
     appID = serverSocketChannel.getLocalAddress().hashCode();
   }
 
@@ -129,7 +130,7 @@ public final class Controller {
       case POTENTIAL -> {
         System.out.println("Total potential: " + potential);
         System.out.println("Neighboring potentials:");
-        availableNodesStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
+        availableNodesStream().forEach(ctx -> System.out.println(ctx.host() + " | " + ctx.remoteAppId() + " -> " + ctx.potential()));
       }
       case ID -> System.out.println("App ID: " + appID);
       default -> System.out.println("Unknown debug code: " + command.debugCode());

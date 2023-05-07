@@ -48,6 +48,12 @@ public final class ConnectionContext implements Context {
   }
 
   /**
+   * Returns the ID of the app this is connected to
+   * @return the ID of the app this is connected to
+   */
+  public int remoteAppId() { return remoteAppID; }
+
+  /**
    * Returns the key this is attached to
    * @return the key this is attached to
    */
@@ -105,12 +111,12 @@ public final class ConnectionContext implements Context {
       case InitPacket initPacket -> {
         potential = initPacket.potential();
         controller.updateNeighbors(key);
-        // updt app id
+        remoteAppID = initPacket.appID();
       }
       case UpdtPacket updtPacket -> {
         potential = updtPacket.potential();
         controller.updateNeighbors(key);
-        // updt app id
+        remoteAppID = updtPacket.appID();
       }
       case AnsPacket ansPacket -> controller.transmitPacketToJobs(ansPacket);
       case ReqPacket reqPacket -> controller.processRequestPacket(reqPacket, this);
