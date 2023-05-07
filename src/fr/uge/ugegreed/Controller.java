@@ -235,12 +235,8 @@ public final class Controller {
     clientKey.attach(context);
 
     // Reroute jobs if needed
-//    var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
-//    var jobsToReplace = upstreamHostsToreplace.get(remoteAddress);
-//    if (jobsToReplace != null) {
-//      jobsToReplace.forEach(id -> jobs.swapUpstreamHost(id, clientKey));
-//      upstreamHostsToreplace.remove(remoteAddress);
-//    }
+    // TODO
+
 
     // Potential management
     context.queuePacket(new InitPacket(potential, appID));
@@ -256,6 +252,22 @@ public final class Controller {
     try {
       key.channel().close();
     } catch (IOException ignored) {
+    }
+  }
+
+  /**
+   * Reroutes jobs attributed to a certain appID to a new context
+   * @param appID id of the app the jobs are attached to
+   * @param context context to switch the job to
+   */
+  public void rerouteJobs(int appID, ConnectionContext context) {
+    var jobsToReplace = upstreamHostsToreplace.get(appID);
+    if (jobsToReplace != null) {
+      jobsToReplace.forEach(id -> {
+        jobs.swapUpstreamHost(id, context);
+        logger.info("Rerouted job " + id + " to app " + appID);
+      });
+      upstreamHostsToreplace.remove(appID);
     }
   }
 

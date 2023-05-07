@@ -112,11 +112,13 @@ public final class ConnectionContext implements Context {
         potential = initPacket.potential();
         controller.updateNeighbors(key);
         remoteAppID = initPacket.appID();
+        controller.rerouteJobs(remoteAppID, this);
       }
       case UpdtPacket updtPacket -> {
         potential = updtPacket.potential();
         controller.updateNeighbors(key);
         remoteAppID = updtPacket.appID();
+        controller.rerouteJobs(remoteAppID, this);
       }
       case AnsPacket ansPacket -> controller.transmitPacketToJobs(ansPacket);
       case ReqPacket reqPacket -> controller.processRequestPacket(reqPacket, this);

@@ -188,13 +188,13 @@ public final class Jobs {
     /**
      * Swaps the upstream host of a certain job for a new one.
      * @param jobID job that must be updated
-     * @param swap new host
+     * @param swapContext new host
      */
-    public void swapUpstreamHost(long jobID, SelectionKey swap) {
+    public void swapUpstreamHost(long jobID, ConnectionContext swapContext) {
         var job = jobs.get(jobID);
         if (job != null) {
             switch (job) {
-                case DownstreamJob downstreamJob -> downstreamJob.setUpstreamContext((ConnectionContext) swap.attachment());
+                case DownstreamJob downstreamJob -> downstreamJob.setUpstreamContext(swapContext);
                 case UpstreamJob ignored -> logger.warning("Trying to change upstream host of a job that is already upstream");
                 default -> throw new AssertionError();
             }
