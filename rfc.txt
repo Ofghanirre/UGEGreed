@@ -1,5 +1,5 @@
 University Gustave Eiffel
-Request For Comments: 2023
+Request For Comments: 2023 - V2.0
 Category: Informational
 GAUDET Clément - JEAN Antonin
 UGE - M1 CI/CS
@@ -82,7 +82,8 @@ downstream  In the context of a job, refers to the node a job
  '"""""'
 
 A small diagram is shown here to demonstrate the main relationships
-between nodes of the network.
+between nodes of the network. Each has node has a unique id, represented here
+by a letter.
 
 0.3.1. -*- Structural relationships
 
@@ -181,24 +182,25 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
 
 1.1 - INIT (initialize):         
 
-   1 byte   int (4 bytes)
-  -------------------------
-  |  1  |    potential    |
-  -------------------------
+   1 byte   int (4 bytes)    int (4 bytes)
+  ------------------------------------------
+  |  1  |    potential    | application id |
+  ------------------------------------------
 
   Direction : from parent to child, on connection
 
   Role  :
     When a new node establishes connection with an existing network,
     an INIT packet is sent to the new node to inform them of the current
-    number of nodes on the network (including the parent).
+    number of nodes on the network (including the parent) as well as its
+    application id
 
 1.2 - UPDT (update):
 
-   1 byte   int (4 bytes)
-  -------------------------
-  |  2  |    potential    |
-  -------------------------
+   1 byte   int (4 bytes)    int (4 bytes)
+  ------------------------------------------
+  |  2  |    potential    | application id |
+  ------------------------------------------
 
   Direction : from a parent to all other nodes, on connection of
     a new child, sometimes from child to new parent
@@ -295,7 +297,7 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
   |  7  |  new_parent  |
   ----------------------
 
-  Direction: from parent to child, on disconnectiong
+  Direction: from parent to child, on disconnection
 
   Role:
     In the context of the disconnection of a non root node, this packet
@@ -305,16 +307,16 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
 
 1.8 - DISC (disconnection):    
 
-    1 B   int(4 B)  int(4 B)    long(8 B)       host(6 B)
+    1 B   int(4 B)  int(4 B)    long(8 B)       int(4 B)
   ---------------------------------------------------------------
   |  8  | nb_reco |  nb_jobs  |   job_id   |  new_upstream  | ....
   ----------------------------------------------------------------
 
-  Direction : disconnecting node to all neighbours
+  Direction : from child to parent, on disconnection
 
   Role:
-    This packet has two roles. First, it informs neighbors that it is
-    going to disconnecting, and that they should be putting communications
+    This packet has two roles. First, it informs its parent that it is
+    going to disconnect, and that they should be putting communications
     with that node on hold.
 
     Secondly, if a node disconnects while at least one job is ongoing, it
@@ -322,16 +324,14 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
     that started the job.
 
     Thus, for each active job it was a part of, it sends its neighbors
-    the host that should become the new upstream node so that after it
-    disconnects and after the children reconnect afterwards, pathways
-    maybe be reestablished.
+    the application id of the host that should become the new upstream node
+    so that after it disconnects and after the children reconnect afterwards,
+    pathways maybe be reestablished.
     
     Since there might be multiple jobs, the nb_jobs fields informs about
     how many times the job_id/new_upstream part gets repeated.
 
-    A last information is given. The field nb_reco will be 0 for most neighbours
-    except the parent. Indeed, the disconnecting node has to tell the parent how
-    many new connections to expect before the network is reformed.
+    The nb_reco field is obsolete.
 
 1.9 - OK_DISC (ok disconnection):
 
@@ -343,7 +343,7 @@ IPv4 address over 4 bytes, followed by a port number on 2 bytes
   Direction: from neighbors to disconnecting node
 
   Role  :
-    Very simple packet meant, for each neighbors, to inform the disconnecting node
+    Very simple packet meant, for each neighbor, to inform the disconnecting node
     that all communication upstream are properly suspended. The disconnecting node
     waits for each neighbors to confirm with this packet before proceeding to the
     disconnection itself.
@@ -367,8 +367,8 @@ The UGEGreed protocol is detailed in this section
   it should be connected to one of the already existing nodes B. Upon forming
   this connection, potentials across the network have to be updated.
 
-  First, an INIT packet is sent from B to A, telling it about the number of
-  of nodes the whole network has.
+  First, an INIT packet is sent from B to A, telling it about the number
+  of nodes the whole network has and its own id, which A has to remember.
 
   Secondly, B sends to every other neighbor an UPDT packet, telling them how
   many nodes are now available (which should be the previous number + 1) in
@@ -376,7 +376,8 @@ The UGEGreed protocol is detailed in this section
 
   Those UPDT packets should be recursively propagated by the neighbors in a
   similar manner (to all neighbors except the one they received the UPDT
-  packet from) so that the whole network is updated.
+  packet from) so that the whole network is updated. That means, at all times,
+  every node in the network knows how many nodes there are and the id of its neighbors.
  
   Example diagram:
 
@@ -412,7 +413,7 @@ A new node D connects to B, the network now looks like that:
  |  D  |
  '"""""'
 
-  The arrows indicates this time the packets sent and their direction.
+  The arrows indicate this time the packets sent and their direction.
   Firstly, B sends an INIT packet to D containing 3, as it's aware there
   are 2 machines in the subnetwork of its only neighbor + itself.
 
@@ -447,7 +448,7 @@ A new node D connects to B, the network now looks like that:
 
   Any node of the network can start a new job and distribute it over the network.
   The node should use the potentials it knows about its different neighbors to
-  split the work that has to be done in a fair manner so as to get it completed
+  split the work that has to be done in a fair manner to get it completed
   faster.
 
   The first phase of a job request is to send the requests themselves.
@@ -533,7 +534,7 @@ Example diagram:
  The job is now distributed properly. Of course, this is only an example and all
  situations cannot be represented. In any case, each node must answer the full range
  that was requested in a mix of ACC and REF packets, so to account in the end for all
- of the numbers that are to be done for the job.
+ the numbers that are to be done for the job.
      
      
 2.4 -*- Job Answering
@@ -551,41 +552,42 @@ Example diagram:
   ANS packet,
   it must also forward it upstream, unless it is the node that started the job.
 
-2.5 -*- Disconnection of a non root node
+2.5 -*- Disconnection of a non-root node
 
-  The disconnection of a non root node is a delicate process as it 
-  requires maintaining the
-  integrity of the network to prevent it from splitting apart, as well as maintaining
-  ongoing jobs. The process thus takes multiple phases.
+  The disconnection of a non-root node is a delicate process as it
+  requires maintaining the integrity of the network to prevent it from splitting apart,
+  as well as maintaining ongoing jobs. The process thus 2 phases.
 
   If the node had started jobs itself, they must be completed before
   disconnecting the job.
 
   Phase 1: Notifications
 
-    The node which wishes to disconnect must send a DISC packet to every neighbor.
-    If a node receives a DISC packet, it must put on hold any communication to 
-    that node,
-    most notably answers, until the full process of disconnection/reconnection 
+    The first thing to do is to send a REF packet for all jobs it still had ongoing work for,
+    so as to let the upstream nodes know to reschedule these. If the node has accepted to take
+    4 to 9, and only send 4 and 5, it would thus send a REF Packet for 6 to 9;
+
+    The node which wishes to disconnect must send a DISC packet to its parent
+    and REDI packets to his children.
+    If a node receives a DISC or REDI packet, it must put on hold any communication to
+    that node, most notably answers, until the full process of disconnection/reconnection
     is complete.
 
-    DISC packets contain extra information, notably about ongoing jobs. Indeed,
-    the node to
-    disconnect might be a pathway to get answers back up to an upstream node.
-    This only matters
-    if it's the parent node that is downstream (since children will only have one 
-    new connection afterwards). It should thus inform its parent for each job it 
-    is downstream of about which
-    host they should send answers to instead after the disconnection.
+    DISC packets contain extra information about ongoing jobs. Indeed,
+    the node to disconnect might be a pathway to get answers back up to an upstream node.
+    This only matters if it's the parent node that is downstream (since children will
+    only have one new connection afterwards). It should thus inform its parent for each job it
+    is downstream of about which host they should send answers to instead after the disconnection.
 
-    The DISC packet also tells the parent how many reconnections to expect 
-    after the disconnection.
-    This is so the parent react to the children reconnecting to the 
-    network appropriately.
+    The REDI packets gives the children the IP and port of
+    the parent node.
+    This allows the children to reconnect afterwards to the network in order
+    to maintain its integrity.
+
 
   Phase 2: Aknowledgement
 
-    Once neighbours have received the DISC packet and have put on hold their 
+    Once neighbours have received the DISC/REDI packet and have put on hold their
     other communication
     to that node, they send back a DISC_OK packet. Once the disconnecting 
     node received one from
@@ -595,20 +597,7 @@ Example diagram:
     the disconnecting node
     until its actual disconnection.
 
-  Phase 3: Transferring further information
-
-    In that phase, the disconnecting node must still transfer other information.
-
-    First, for the jobs it had, it must send REF packets to the upstream nodes 
-    to inform them that
-    numbers they had accepted to compute will not be done.
-
-    Second, it sends REDI packets to its children, giving them the IP and port of 
-    its parent node.
-    This allows the children to reconnect afterwards to the network in order 
-    to maintain its integrity.
-
-  Phase 4: Disconnection and reconnection
+  Phase 3: Disconnection and reconnection
 
     At that point, the node is shutdown, and the connection to each of its 
     neighbours is ended.
@@ -616,22 +605,19 @@ Example diagram:
     Once the neighbour notice the disconnection, they can then do the 
     necessary actions to get going
     again. The children will reconnect to the parent of the disconnected node 
-    using the IP and port they
-    received from the REDI packets.
+    using the IP and port they received from the REDI packets.
 
     Once the reconnections are done, potentials will need to be updated. The 
     new parent will wait for
     each child to have reconnected. Each child will send an UPDT packet 
-    containing the number of node
-    in the subnetwork it remained attached to. Once all these are obtained, the 
-    new parent can then
-    send each child an INIT packet with the proper number of nodes, as well as 
-    UPDT packets to its other
-    previous neighbours, so as to keep the whole network up to date.
+    containing the number of node in the subnetwork it remained attached to.
+    The new parent also sends each child an INIT packet with the proper number of nodes,
+    as well as UPDT packets to its other
+    previous neighbors, to keep the whole network up to date.
+    Both the UPDT and INIT packet also inform the nodes of the id of their new neighbor.
 
     After that, nodes also need to make sure that the upstream nodes are updated 
-    for each job using the
-    information for the DISC packets.
+    for each job using the information for the DISC packets.
 
     At that point, all communications can resume, as the network should have kept 
     its integrity.
@@ -663,6 +649,8 @@ Example diagram:
 
  Phase 1:
 
+  B sends a REF packet to D with the range it did not complete before disconnection.
+
   B sends a DISC packet to A containing
   * nb_reco = 1
   * nb_jobs = 1
@@ -676,9 +664,7 @@ Example diagram:
   one child will have to reconnect, but B could have multiple children, which 
   would lead to confusion).
 
-  B also sends a DISC packet to A containing:
-  * nb_reco = 0
-  * nb_jobs = 0
+  B sends a REDI packet to A containing the information for host A.
 
   D won't expect any reconnection, and being a child, it doesn't matter if it 
   even was downstream of a job.
@@ -689,18 +675,11 @@ Phase 2:
 
 Phase 3:
 
-  B sends a REF packet to D with the range it did not complete before disconnection.
-
-  It then sends D a REDI packet containing the information for host A.
-
-Phase 4:
-
   B disconnects. Upon sensing the disconnection, D proceeds to reconnect to A.
 
   D then sends an UPDT packet to A telling it there is only 1 node in its subnetwork.
 
-  Since the only child that was expected reconnected, A can then send an INIT 
-  packet to D telling it there are now 2 nodes on this side of the network, 
+  A sends an INIT  packet to D telling it there are now 2 nodes on this side of the network,
   and an UPDT packet to C informing it there are now 2 nodes on its side as well.
 
   At that point, communications resume normally, as D chooses to do the 
