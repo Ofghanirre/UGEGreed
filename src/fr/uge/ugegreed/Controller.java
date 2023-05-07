@@ -45,7 +45,7 @@ public final class Controller {
   // Related to disconnection
   private boolean disconnecting = false;
   private int disconnectionCounter;
-  private final HashMap<InetSocketAddress, ArrayList<Long>> upstreamHostsToreplace = new HashMap<>();
+  private final HashMap<Integer, ArrayList<Long>> upstreamHostsToreplace = new HashMap<>();
 
   private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
@@ -235,12 +235,12 @@ public final class Controller {
     clientKey.attach(context);
 
     // Reroute jobs if needed
-    var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
-    var jobsToReplace = upstreamHostsToreplace.get(remoteAddress);
-    if (jobsToReplace != null) {
-      jobsToReplace.forEach(id -> jobs.swapUpstreamHost(id, clientKey));
-      upstreamHostsToreplace.remove(remoteAddress);
-    }
+//    var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
+//    var jobsToReplace = upstreamHostsToreplace.get(remoteAddress);
+//    if (jobsToReplace != null) {
+//      jobsToReplace.forEach(id -> jobs.swapUpstreamHost(id, clientKey));
+//      upstreamHostsToreplace.remove(remoteAddress);
+//    }
 
     // Potential management
     context.queuePacket(new InitPacket(potential, appID));
@@ -335,7 +335,7 @@ public final class Controller {
         var innerDiskPackets = new DiscPacket.InnerDiscPacket[innerDiskPacketSize];
         for (var i = 0 ; i < innerDiskPacketSize ; i++) {
           var job = jobsUpstreamOfParent.get(i);
-          innerDiskPackets[i] = new DiscPacket.InnerDiscPacket(job.jobID(), job.getUpstreamContext().host());
+          innerDiskPackets[i] = new DiscPacket.InnerDiscPacket(job.jobID(), job.getUpstreamContext().remoteAppId());
         }
         ctx.queuePacket(new DiscPacket(nbReco, innerDiskPacketSize, innerDiskPackets));
       } else {

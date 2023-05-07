@@ -3,10 +3,8 @@ package fr.uge.ugegreed.tests.basePacket;
 import fr.uge.ugegreed.packets.DiscPacket;
 import fr.uge.ugegreed.readers.BasePacketReader;
 import fr.uge.ugegreed.readers.Reader;
-import fr.uge.ugegreed.utils.TypeToByteWriter;
 import org.junit.jupiter.api.Test;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class InnerDiscPacketTest {
     @Test
     public void simpleInnerDiscPacket() {
-        var packet = new DiscPacket.InnerDiscPacket(1, new InetSocketAddress("42.69.00.30", 7777));
+        var packet = new DiscPacket.InnerDiscPacket(1, 7777);
 
         var buffer = packet.toBuffer();
         buffer.compact();
@@ -29,8 +27,8 @@ public class InnerDiscPacketTest {
 
     @Test
     public void resetInnerDiscPacket() {
-        var packet = new DiscPacket.InnerDiscPacket(1, new InetSocketAddress("42.69.00.30", 7777));
-        var packet2 = new DiscPacket.InnerDiscPacket(2, new InetSocketAddress("42.69.01.30", 6666));
+        var packet = new DiscPacket.InnerDiscPacket(1, 7777);
+        var packet2 = new DiscPacket.InnerDiscPacket(2,6666);
         var buffer = packet.toBuffer();
         buffer.compact();
         var buffer2 = packet2.toBuffer();
@@ -51,7 +49,7 @@ public class InnerDiscPacketTest {
 
     @Test
     public void fragmentedInnerDiscPacket() {
-        var packet = new DiscPacket.InnerDiscPacket(1, new InetSocketAddress("42.69.00.30", 7777));
+        var packet = new DiscPacket.InnerDiscPacket(1, 7777);
         var buffer = packet.toBuffer();
 
         var oldLimit = buffer.limit();
@@ -71,10 +69,9 @@ public class InnerDiscPacketTest {
     @Test
     public void errorNegInnerDiscPacker() {
         long job_id = -1;
-        var address = new InetSocketAddress("42.69.00.30", 7777);
-        var address_bb = TypeToByteWriter.getHost(address);
-        var buffer = ByteBuffer.allocate(Byte.BYTES + Long.BYTES + address_bb.remaining());
-        buffer.putLong(job_id).put(address_bb);
+        var address = 7777;
+        var buffer = ByteBuffer.allocate(Byte.BYTES + Long.BYTES + Integer.BYTES);
+        buffer.putLong(job_id).putInt(address);
 
         var reader = BasePacketReader.innerDiscPacketReader();
         // JOB_ID INVALID

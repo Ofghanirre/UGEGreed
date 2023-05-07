@@ -17,7 +17,7 @@ public class DiscPacketTest {
     public void simpleDiscPacket() {
         var packet = new DiscPacket(
                 1, 1, new DiscPacket.InnerDiscPacket[]{
-                        new DiscPacket.InnerDiscPacket(1, new InetSocketAddress("42.69.00.30", 7777))
+                        new DiscPacket.InnerDiscPacket(1, 7777)
         });
         var buffer = packet.toBuffer();
         buffer.position(buffer.position() + 1).compact();
@@ -33,11 +33,11 @@ public class DiscPacketTest {
     public void resetDiscPacket() {
         var packet = new DiscPacket(
                 1, 1, new DiscPacket.InnerDiscPacket[]{
-                new DiscPacket.InnerDiscPacket(1, new InetSocketAddress("42.69.00.30", 7777))
+                new DiscPacket.InnerDiscPacket(1, 7777)
         });
         var packet2 = new DiscPacket(
                 1, 1, new DiscPacket.InnerDiscPacket[]{
-                new DiscPacket.InnerDiscPacket(1, new InetSocketAddress("42.69.10.30", 6666))
+                new DiscPacket.InnerDiscPacket(1, 6666)
         });
         var buffer = packet.toBuffer();
         buffer.position(buffer.position() + 1).compact();
@@ -61,7 +61,7 @@ public class DiscPacketTest {
     public void fragmentedDiscPacket() {
         var packet = new DiscPacket(
                 1, 1, new DiscPacket.InnerDiscPacket[]{
-                new DiscPacket.InnerDiscPacket(1, new InetSocketAddress("42.69.00.30", 7777))
+                new DiscPacket.InnerDiscPacket(1,7777)
         });
         var buffer = packet.toBuffer();
         buffer.position(buffer.position() + 1);

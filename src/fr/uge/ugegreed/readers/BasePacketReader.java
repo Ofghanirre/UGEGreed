@@ -186,10 +186,10 @@ public final class BasePacketReader<T> implements Reader<T> {
 
   @SuppressWarnings("unchecked")
   public static Reader<DiscPacket.InnerDiscPacket> innerDiscPacketReader() {
-    return new BasePacketReader<>(List.of(BaseReader.longReader(), BaseReader.hostReader()),
+    return new BasePacketReader<>(List.of(BaseReader.longReader(), BaseReader.intReader()),
       readers -> {
         var jobId = ((Reader<Long>) readers.get(0)).get();
-        var host = ((Reader<InetSocketAddress>) readers.get(1)).get();
+        var host = ((Reader<Integer>) readers.get(1)).get();
 
         try {
           return Optional.of(new DiscPacket.InnerDiscPacket(jobId, host));

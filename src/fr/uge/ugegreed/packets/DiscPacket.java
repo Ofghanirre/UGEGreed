@@ -1,8 +1,5 @@
 package fr.uge.ugegreed.packets;
 
-import fr.uge.ugegreed.utils.TypeToByteWriter;
-
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Objects;
@@ -16,12 +13,11 @@ import java.util.Objects;
  */
 public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) implements Packet {
 
-  public record InnerDiscPacket(long job_id, InetSocketAddress new_upstream) {
+  public record InnerDiscPacket(long job_id, int new_upstream) {
     public InnerDiscPacket {
       if (job_id < 0) {
         throw new IllegalArgumentException("job_id must be positive");
       }
-      Objects.requireNonNull(new_upstream);
     }
 
     /**
@@ -29,11 +25,11 @@ public record DiscPacket(int nb_reco, int nb_jobs, InnerDiscPacket[] jobs) imple
      * @return ByteBuffer in READ mode
      */
     public ByteBuffer toBuffer() {
-      return ByteBuffer.allocate(getSize()).putLong(job_id).put(TypeToByteWriter.getHost(new_upstream)).flip();
+      return ByteBuffer.allocate(getSize()).putLong(job_id).putInt(new_upstream).flip();
     }
 
     public static int getSize() {
-      return Long.BYTES + 6;
+      return Long.BYTES + Integer.BYTES;
     }
 
     @Override
