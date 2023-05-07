@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class InitPacketTest {
     @Test
     public void simpleInitPacket() {
-        var packet = new InitPacket(3);
+        var packet = new InitPacket(3, 7777);
         var buffer = packet.toBuffer();
         buffer.position(buffer.position() + 1).compact();
         var reader = BasePacketReader.initPacketReader();
@@ -26,8 +26,8 @@ public class InitPacketTest {
 
     @Test
     public void resetInitPacket() {
-        var packet = new InitPacket(42);
-        var packet2 = new InitPacket(3333);
+        var packet = new InitPacket(42, 7777);
+        var packet2 = new InitPacket(3333, 7777);
         var buffer = packet.toBuffer();
         buffer.position(buffer.position() + 1).compact();
         var buffer2 = packet2.toBuffer();
@@ -48,7 +48,7 @@ public class InitPacketTest {
 
     @Test
     public void fragmentedInitPacket() {
-        var packet = new InitPacket(3);
+        var packet = new InitPacket(3, 7777);
         var buffer = packet.toBuffer();
         buffer.position(buffer.position() + 1);
 
@@ -68,7 +68,7 @@ public class InitPacketTest {
 
     @Test
     public void errorNegInitPacker() {
-        var buffer = ByteBuffer.allocate(4).putInt(-2);
+        var buffer = ByteBuffer.allocate(8).putInt(-2).putInt(7777);
         var reader = BasePacketReader.initPacketReader();
 
         assertEquals(Reader.ProcessStatus.ERROR, reader.process(buffer));

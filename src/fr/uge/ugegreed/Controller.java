@@ -40,10 +40,12 @@ public final class Controller {
   private final Jobs jobs;
   private int potential = 1;
 
+  private final int appID;
+
   // Related to disconnection
   private boolean disconnecting = false;
   private int disconnectionCounter;
-  private final HashMap<InetSocketAddress, ArrayList<Long>> upstreamHostsToreplace = new HashMap<>();
+  private final HashMap<Integer, ArrayList<Long>> upstreamHostsToReplace = new HashMap<>();
 
   private SelectionKey parentKey = null;
   private final ArrayBlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(8);
@@ -67,12 +69,16 @@ public final class Controller {
     Files.createDirectories(jarPath);
 
     this.listenPort = listenPort;
-    this.selector = Selector.open();
+    selector = Selector.open();
     jobs = new Jobs(resultPath, this);
     this.parentAddress = parentAddress;
-    this.serverSocketChannel = ServerSocketChannel.open();
+    serverSocketChannel = ServerSocketChannel.open();
     serverSocketChannel.bind(new InetSocketAddress(listenPort));
-    this.parentSocketChannel = SocketChannel.open();
+
+    parentSocketChannel = SocketChannel.open();
+
+    // Insufficient if the network is deployed over multiple machines, but works in local...
+    appID = serverSocketChannel.getLocalAddress().hashCode();
   }
 
   /**
@@ -124,9 +130,9 @@ public final class Controller {
       case POTENTIAL -> {
         System.out.println("Total potential: " + potential);
         System.out.println("Neighboring potentials:");
-        availableNodesStream().forEach(ctx -> System.out.println(ctx.host() + " -> " + ctx.potential()));
+        availableNodesStream().forEach(ctx -> System.out.println(ctx.host() + " | " + ctx.remoteAppId() + " -> " + ctx.potential()));
       }
-      // Code other debug codes here!
+      case ID -> System.out.println("App ID: " + appID);
       default -> System.out.println("Unknown debug code: " + command.debugCode());
     }
   }
@@ -229,19 +235,15 @@ public final class Controller {
     clientKey.attach(context);
 
     // Reroute jobs if needed
-    var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
-    var jobsToReplace = upstreamHostsToreplace.get(remoteAddress);
-    if (jobsToReplace != null) {
-      jobsToReplace.forEach(id -> jobs.swapUpstreamHost(id, clientKey));
-      upstreamHostsToreplace.remove(remoteAddress);
-    }
+    // TODO
+
 
     // Potential management
-    context.queuePacket(new InitPacket(potential));
+    context.queuePacket(new InitPacket(potential, appID));
     reevaluatePotential();
     availableNodesStream().forEach(ctx -> {
       if (ctx.key() != clientKey) {
-        ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
+        ctx.queuePacket(new UpdtPacket(potential - ctx.potential(), appID));
       }
     });
   }
@@ -250,6 +252,22 @@ public final class Controller {
     try {
       key.channel().close();
     } catch (IOException ignored) {
+    }
+  }
+
+  /**
+   * Reroutes jobs attributed to a certain appID to a new context
+   * @param appID id of the app the jobs are attached to
+   * @param context context to switch the job to
+   */
+  public void rerouteJobs(int appID, ConnectionContext context) {
+    var jobsToReplace = upstreamHostsToReplace.get(appID);
+    if (jobsToReplace != null) {
+      jobsToReplace.forEach(id -> {
+        jobs.swapUpstreamHost(id, context);
+        logger.info("Rerouted job " + id + " to app " + appID);
+      });
+      upstreamHostsToReplace.remove(appID);
     }
   }
 
@@ -273,6 +291,12 @@ public final class Controller {
   }
 
   /**
+   * Returns appID of the app
+   * @return appID of the app
+   */
+  public int appID() { return appID; }
+
+  /**
    * Reevaluates the total potential of the network
    */
   public void reevaluatePotential() {
@@ -289,7 +313,7 @@ public final class Controller {
     reevaluatePotential();
     availableNodesStream().forEach(ctx -> {
       if (ctx.key() != incomingHost) {
-        ctx.queuePacket(new UpdtPacket(potential - ctx.potential()));
+        ctx.queuePacket(new UpdtPacket(potential - ctx.potential(), appID));
       }
     });
   }
@@ -323,7 +347,7 @@ public final class Controller {
         var innerDiskPackets = new DiscPacket.InnerDiscPacket[innerDiskPacketSize];
         for (var i = 0 ; i < innerDiskPacketSize ; i++) {
           var job = jobsUpstreamOfParent.get(i);
-          innerDiskPackets[i] = new DiscPacket.InnerDiscPacket(job.jobID(), job.getUpstreamContext().host());
+          innerDiskPackets[i] = new DiscPacket.InnerDiscPacket(job.jobID(), job.getUpstreamContext().remoteAppId());
         }
         ctx.queuePacket(new DiscPacket(nbReco, innerDiskPacketSize, innerDiskPackets));
       } else {
@@ -357,15 +381,12 @@ public final class Controller {
     switch (disconnectionPacket) {
       case DiscPacket discPacket -> {
         for (var innerDiskPacket : discPacket.jobs()) {
-          upstreamHostsToreplace.computeIfAbsent(innerDiskPacket.new_upstream(), k -> new ArrayList<>())
+          upstreamHostsToReplace.computeIfAbsent(innerDiskPacket.new_upstream(), k -> new ArrayList<>())
               .add(innerDiskPacket.job_id());
         }
       }
       case RediPacket rediPacket -> {
-        // Get local address to reuse it so that this node can be identified properly by the new parent
-        var oldAddress = parentSocketChannel.getLocalAddress();
         parentSocketChannel = SocketChannel.open();
-        parentSocketChannel.bind(oldAddress);
         parentSocketChannel.configureBlocking(false);
         var key = parentSocketChannel.register(selector, SelectionKey.OP_CONNECT);
         key.attach(new ConnectionContext(this, key, true));

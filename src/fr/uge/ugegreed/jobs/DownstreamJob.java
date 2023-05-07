@@ -18,6 +18,7 @@ public final class DownstreamJob implements Job {
         private WorkRange(long start, long end) {
             this.start = start;
             this.end = end;
+            lastSent = start - 1;
         }
 
         private void updateLastSent(long lastSent) {
@@ -85,8 +86,8 @@ public final class DownstreamJob implements Job {
         var cursor = start;
 
         logger.info("Scheduling " + cursor + " to " + (cursor + sizeOfSlices * localPotential) + " for job " + jobID);
-        executor.addJob(checker, jobID, cursor, cursor + sizeOfSlices);
-        workRanges.add(new WorkRange(cursor, cursor + sizeOfSlices));
+        executor.addJob(checker, jobID, cursor, cursor + sizeOfSlices * localPotential);
+        workRanges.add(new WorkRange(cursor, cursor + sizeOfSlices * localPotential));
         cursor += sizeOfSlices * localPotential;
 
         var hosts = controller.availableNodesStream()
@@ -101,7 +102,7 @@ public final class DownstreamJob implements Job {
             cursor += sizeOfSlices * localPotential;
         }
 
-        // If for some reason there are remaining numbers, the node takes them
+        // If for some reason there are remaining numbers, the node takes them, this is a failsafe
         if (cursor < end) {
             logger.warning("Numbers " + cursor + " to " + end + " for job " + jobID +
                 " were not distributed, scheduling them locally...");

@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
  * Represents an INIT packet
  * @param potential potential of the network
  */
-public record InitPacket(int potential) implements Packet {
+public record InitPacket(int potential, int appID) implements Packet {
   private static final byte CODE = Packet.PacketCode.INIT.getCode();
 
   public InitPacket {
@@ -17,11 +17,11 @@ public record InitPacket(int potential) implements Packet {
 
   @Override
   public ByteBuffer toBuffer() {
-    return ByteBuffer.allocate(Byte.BYTES + Integer.BYTES).put(CODE).putInt(potential).flip();
+    return ByteBuffer.allocate(Byte.BYTES + Integer.BYTES * 2).put(CODE).putInt(potential).putInt(appID).flip();
   }
 
   @Override
   public String toString() {
-    return "INIT packet(potential: " + potential + ")";
+    return "INIT packet(potential: " + potential + ", appID: " + appID + ")";
   }
 }
