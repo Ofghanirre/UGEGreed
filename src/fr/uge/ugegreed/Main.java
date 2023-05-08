@@ -48,27 +48,28 @@ public final class Main {
     }
     InetSocketAddress parentAddress = null;
 
-    if (args.length > 2) {
+    for (int i = 2; i < args.length; i++) {
+      if (args[i].equals("-t")) {
+        if (args.length > i + 1) {
+          int threadAmount = Integer.parseInt(args[i + 1]);
+          TaskExecutor.setThreadAmount(threadAmount);
+          logger.info("Set Thread Amount to " + TaskExecutor.getThreadAmount());
+          i++;
+        } else {
+          logger.info("Thread Default Amount is " + TaskExecutor.getThreadAmount() + ", you can set it up by inputing a number after the -t option");
+        }
+      }
+      else if (args.length - i > 2) {
         try {
-          parentAddress = new InetSocketAddress(args[2], Integer.parseInt(args[3]));
+          parentAddress = new InetSocketAddress(args[i], Integer.parseInt(args[i+1]));
+          i++;
         } catch (IllegalArgumentException e) {
           logger.warning(e.getMessage());
           errorLogged += 1;
         }
-    }
-
-    /*
-    if (args.length > 5 && args[4].equals("-t")) {
-      if (args.length > i+1) {
-        int threadAmount = Integer.parseInt(args[3]);
-        TaskExecutor.setThreadAmount(threadAmount);
-        logger.info("Set Thread Amount to " + TaskExecutor.getThreadAmount());
-        i++;
-      } else {
-        logger.info("Thread Default Amount is " + TaskExecutor.getThreadAmount() + ", you can set it up by inputing a number after the -t option");
       }
     }
-    */
+
 
     if (errorLogged != 0) {
       logger.warning(errorLogged + ((errorLogged > 1) ? " errors were" : " error was") + " found while starting the Application, please fix them and restart the application");
