@@ -5,6 +5,17 @@ Université Gustave Eiffel for students Clément GAUDET and Antonin JEAN.
 
 The implementation is fully in non blocking TCP.
 
+## Program usage:
+Root:
+```shell
+$ java -jar execName portUsed resultFolderPath [-t [ThreadAmount]]
+```
+
+Node:
+```shell
+$ java -jar execName portUsed resultFolderPath ipToConnectTo portToConnectTo [-t [ThreadAmount]]
+```
+
 ## Console Usage:
 
 > Help Command : help
